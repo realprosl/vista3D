@@ -162,25 +162,27 @@
     .toggle.on .indicator { background: #2a7ae2; }
     .toggle.on .indicator::after { transform: translateX(12px); }
 
-    /* Filas de material */
-    .mp-row { display: flex; align-items: center; gap: 10px; }
-    .mp-row + .mp-row { margin-top: 6px; }
-    .mp-swatch {
-      width: 32px; height: 32px; border-radius: 6px; flex-shrink: 0;
-      border: 1px solid rgba(0,0,0,0.12);
-      background-color: #c4a988;
+    /* Filas de material: layout horizontal compacto:
+       [color picker] [nombre] [selector de textura].
+       El color picker ya hace de swatch visual. */
+    .mp-row {
+      display: grid;
+      grid-template-columns: 32px 1fr 88px;
+      align-items: center;
+      gap: 6px;
     }
-    .mp-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-    .mp-name { font-size: 12px; font-weight: 600; color: #1a1d23; }
-    .mp-subname { font-size: 10px; color: #5a6171; }
-    .mp-controls { display: flex; gap: 4px; }
-    .mp-controls input[type=color] {
-      width: 32px; height: 24px; padding: 0;
+    .mp-row + .mp-row { margin-top: 4px; }
+    .mp-row input[type=color] {
+      width: 32px; height: 26px; padding: 0;
       border: 1px solid rgba(0,0,0,0.1);
-      border-radius: 4px; cursor: pointer; background: transparent; flex-shrink: 0;
+      border-radius: 6px; cursor: pointer; background: transparent;
     }
-    .mp-controls select {
-      flex: 1; min-width: 0; height: 24px; padding: 0 4px;
+    .mp-row .mp-name {
+      font-size: 12px; font-weight: 500; color: #1a1d23;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .mp-row select {
+      width: 100%; height: 26px; padding: 0 4px;
       font: inherit; font-size: 11px; color: #1a1d23;
       background: #fff; border: 1px solid rgba(0,0,0,0.1);
       border-radius: 4px; cursor: pointer;
@@ -298,97 +300,72 @@
         <div class="sb-section-title">Materiales</div>
         <div class="sb-section-body" id="materials-body">
           <div class="mp-row" data-key="suelo">
-            <div class="mp-swatch" id="mp-swatch-suelo"></div>
-            <div class="mp-info">
-              <div class="mp-name">Suelo — Cara superior</div>
-              <div class="mp-controls">
-                <input type="color" id="mp-suelo-color" value="#c4a988" title="Color de la cara superior del suelo">
-                <select id="mp-suelo-texture" title="Textura del suelo">
-                  <option value="liso">Liso</option>
-                  <option value="madera">Madera</option>
-                  <option value="baldosa">Baldosa</option>
-                  <option value="ladrillo">Ladrillo</option>
-                  <option value="marmol">Mármol</option>
-                  <option value="piedra">Piedra</option>
-                </select>
-              </div>
-            </div>
+            <input type="color" id="mp-suelo-color" value="#c4a988" title="Color de la cara superior del suelo">
+            <div class="mp-name">Cara superior del suelo</div>
+            <select id="mp-suelo-texture" title="Textura del suelo">
+              <option value="liso">Liso</option>
+              <option value="madera">Madera</option>
+              <option value="baldosa">Baldosa</option>
+              <option value="ladrillo">Ladrillo</option>
+              <option value="marmol">Mármol</option>
+              <option value="piedra">Piedra</option>
+            </select>
           </div>
           <div class="mp-row" data-key="suelo-debajo">
-            <div class="mp-swatch" id="mp-swatch-suelo-debajo"></div>
-            <div class="mp-info">
-              <div class="mp-name">Suelo — Cara inferior (forjado)</div>
-              <div class="mp-controls">
-                <input type="color" id="mp-suelo-debajo-color" value="#6a5a48" title="Color de la cara inferior del suelo">
-                <select id="mp-suelo-debajo-texture" title="Textura del forjado">
-                  <option value="liso">Liso</option>
-                  <option value="madera">Madera</option>
-                  <option value="baldosa">Baldosa</option>
-                  <option value="ladrillo">Ladrillo</option>
-                  <option value="marmol">Mármol</option>
-                  <option value="piedra">Piedra</option>
-                </select>
-              </div>
-            </div>
+            <input type="color" id="mp-suelo-debajo-color" value="#6a5a48" title="Color de la cara inferior del suelo">
+            <div class="mp-name">Cara inferior del suelo (forjado)</div>
+            <select id="mp-suelo-debajo-texture" title="Textura del forjado">
+              <option value="liso">Liso</option>
+              <option value="madera">Madera</option>
+              <option value="baldosa">Baldosa</option>
+              <option value="ladrillo">Ladrillo</option>
+              <option value="marmol">Mármol</option>
+              <option value="piedra">Piedra</option>
+            </select>
           </div>
 
-          <div class="mp-subgroup" id="mp-walls-list">
+          <div id="mp-walls-list">
             <!-- Se rellena desde viewer.js: una entrada por pared,
                  con sub-filas para Fachada (exterior) e Interior. -->
           </div>
 
           <div class="mp-row" data-key="cristal">
-            <div class="mp-swatch" id="mp-swatch-cristal"></div>
-            <div class="mp-info">
-              <div class="mp-name">Cristal ventanas</div>
-              <div class="mp-controls">
-                <input type="color" id="mp-cristal-color" value="#b8d8f0" title="Color del cristal">
-                <select id="mp-cristal-texture" title="Textura del cristal">
-                  <option value="liso">Liso</option>
-                  <option value="madera">Madera</option>
-                  <option value="baldosa">Baldosa</option>
-                  <option value="ladrillo">Ladrillo</option>
-                  <option value="marmol">Mármol</option>
-                  <option value="piedra">Piedra</option>
-                </select>
-              </div>
-            </div>
+            <input type="color" id="mp-cristal-color" value="#b8d8f0" title="Color del cristal">
+            <div class="mp-name">Cristal ventanas</div>
+            <select id="mp-cristal-texture" title="Textura del cristal">
+              <option value="liso">Liso</option>
+              <option value="madera">Madera</option>
+              <option value="baldosa">Baldosa</option>
+              <option value="ladrillo">Ladrillo</option>
+              <option value="marmol">Mármol</option>
+              <option value="piedra">Piedra</option>
+            </select>
           </div>
 
           <div class="mp-row" data-key="puerta">
-            <div class="mp-swatch" id="mp-swatch-puerta"></div>
-            <div class="mp-info">
-              <div class="mp-name">Puerta (marco)</div>
-              <div class="mp-controls">
-                <input type="color" id="mp-puerta-color" value="#5a3a20" title="Color de la puerta">
-                <select id="mp-puerta-texture" title="Textura de la puerta">
-                  <option value="liso">Liso</option>
-                  <option value="madera">Madera</option>
-                  <option value="baldosa">Baldosa</option>
-                  <option value="ladrillo">Ladrillo</option>
-                  <option value="marmol">Mármol</option>
-                  <option value="piedra">Piedra</option>
-                </select>
-              </div>
-            </div>
+            <input type="color" id="mp-puerta-color" value="#5a3a20" title="Color de la puerta">
+            <div class="mp-name">Puerta (marco)</div>
+            <select id="mp-puerta-texture" title="Textura de la puerta">
+              <option value="liso">Liso</option>
+              <option value="madera">Madera</option>
+              <option value="baldosa">Baldosa</option>
+              <option value="ladrillo">Ladrillo</option>
+              <option value="marmol">Mármol</option>
+              <option value="piedra">Piedra</option>
+            </select>
           </div>
 
           <div class="mp-row" data-key="hueco">
-            <div class="mp-swatch" id="mp-swatch-hueco"></div>
-            <div class="mp-info">
-              <div class="mp-name">Hueco / Apertura vacía</div>
-              <div class="mp-controls">
-                <input type="color" id="mp-hueco-color" value="#2a2a2a" title="Color del interior del hueco">
-                <select id="mp-hueco-texture" title="Textura del hueco">
-                  <option value="liso">Liso</option>
-                  <option value="madera">Madera</option>
-                  <option value="baldosa">Baldosa</option>
-                  <option value="ladrillo">Ladrillo</option>
-                  <option value="marmol">Mármol</option>
-                  <option value="piedra">Piedra</option>
-                </select>
-              </div>
-            </div>
+            <input type="color" id="mp-hueco-color" value="#2a2a2a" title="Color del interior del hueco">
+            <div class="mp-name">Hueco / Apertura vacía</div>
+            <select id="mp-hueco-texture" title="Textura del hueco">
+              <option value="liso">Liso</option>
+              <option value="madera">Madera</option>
+              <option value="baldosa">Baldosa</option>
+              <option value="ladrillo">Ladrillo</option>
+              <option value="marmol">Mármol</option>
+              <option value="piedra">Piedra</option>
+            </select>
           </div>
 
           <button type="button" id="mp-reset" class="mp-reset" title="Restablecer valores por defecto">

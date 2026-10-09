@@ -42,13 +42,20 @@ function getTHREE() {
 const cache = new Map();
 
 function cacheKey(kind, color, w, h) {
-  return `${kind}:${color.toString(16)}:${w}x${h}`;
+  // Acepta numero o string "#xxxxxx". Si es string, parseamos a numero.
+  let c = color;
+  if (typeof c === "string") c = parseInt(c.replace("#", ""), 16);
+  return `${kind}:${(c >>> 0).toString(16)}:${w}x${h}`;
 }
 
 export function getTexture(kind, baseColor, w, h) {
   if (baseColor === undefined) baseColor = 0xc4a988;
   if (w === undefined) w = 256;
   if (h === undefined) h = 256;
+  // Normalizar color: si es string, lo pasamos a numero.
+  if (typeof baseColor === "string") {
+    baseColor = parseInt(baseColor.replace("#", ""), 16);
+  }
   const key = cacheKey(kind, baseColor, w, h);
   const cached = cache.get(key);
   if (cached) return cached;
@@ -93,6 +100,14 @@ export function getTexture(kind, baseColor, w, h) {
   // cuando se aplican a superficies grandes (suelo, paredes).
   tex.repeat.set(4, 2);
   tex.anisotropy = 4;
+  // Three.js >= 0.152 requiere marcar la textura como sRGB para que
+  // el color se vea correctamente. Si no, sale apagado y parece plana.
+  if (T.SRGBColorSpace) {
+    tex.colorSpace = T.SRGBColorSpace;
+  }
+  // Importante: hay que marcar la textura como "necesita update" para
+  // que Three.js suba el canvas a la GPU.
+  tex.needsUpdate = true;
   cache.set(key, tex);
   return tex;
 }
@@ -123,12 +138,12 @@ function paintMadera(ctx, w, h, base, light, dark) {
   // Fondo base
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, w, h);
-  // Vetas verticales
-  for (let x = 0; x < w; x += 2) {
-    const noise = Math.sin(x * 0.05) * 0.5 + Math.sin(x * 0.13) * 0.3;
+  // Vetas verticales (mas visibles: lineas de 1px claramente alternadas)
+  for (let x = 0; x < w; x += 1) {
+    const noise = Math.sin(x * 0.04) * 0.5 + Math.sin(x * 0.11) * 0.3 + Math.sin(x * 0.27) * 0.2;
     const c = noise > 0 ? light : dark;
     ctx.fillStyle = c;
-    ctx.globalAlpha = Math.abs(noise) * 0.4;
+    ctx.globalAlpha = Math.min(0.7, Math.abs(noise) * 0.5 + 0.15);
     ctx.fillRect(x, 0, 1, h);
   }
   ctx.globalAlpha = 1;
@@ -137,14 +152,13 @@ function paintMadera(ctx, w, h, base, light, dark) {
   for (let i = 0; i < nudos; i++) {
     const x = (i + 0.5) * (w / nudos) + (Math.random() - 0.5) * 20;
     const y = Math.random() * h;
-    const r = 4 + Math.random() * 4;
+    const r = 8 + Math.random() * 8;
     const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
     grad.addColorStop(0, dark);
+    grad.addColorStop(0.6, base);
     grad.addColorStop(1, base);
     ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.fillRect(x - r, y - r, r * 2, r * 2);
   }
 }
 
