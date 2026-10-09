@@ -1,122 +1,636 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="light">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>vista3D - Subir plano SVG</title>
   <style>
-    * { box-sizing: border-box; }
+    /* ========================================================================
+       THEME TOKENS
+       Cambia todos los colores del sitio con [data-theme="dark"].
+       ======================================================================== */
+    :root {
+      --bg: #f7f8fb;
+      --bg-elev: #ffffff;
+      --bg-elev-2: #f0f2f7;
+      --fg: #1a1d23;
+      --fg-muted: #5a6171;
+      --fg-subtle: #8b91a1;
+      --border: #e3e6ed;
+      --border-strong: #cdd2dc;
+      --primary: #2a7ae2;
+      --primary-hover: #1d5dbf;
+      --primary-soft: #e8f0fc;
+      --success: #18a957;
+      --success-soft: #e6f7ed;
+      --danger: #d8424d;
+      --danger-soft: #fce8e9;
+      --warning: #d68900;
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+      --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.06);
+      --shadow-lg: 0 10px 30px rgba(15, 23, 42, 0.08);
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --radius-xl: 20px;
+      --transition: 0.18s ease;
+      --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
+    }
+    [data-theme="dark"] {
+      --bg: #0f1218;
+      --bg-elev: #181c25;
+      --bg-elev-2: #20242f;
+      --fg: #e8eaf0;
+      --fg-muted: #a1a8b8;
+      --fg-subtle: #6b7180;
+      --border: #2a2f3b;
+      --border-strong: #3a4050;
+      --primary: #4a8ef5;
+      --primary-hover: #6da3f8;
+      --primary-soft: #1a2a44;
+      --success: #4dd088;
+      --success-soft: #15301f;
+      --danger: #f06572;
+      --danger-soft: #3a1c20;
+      --warning: #f0b945;
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+      --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+      --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    /* ========================================================================
+       BASE
+       ======================================================================== */
+    *, *::before, *::after { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      max-width: 720px;
-      margin: 40px auto;
-      padding: 0 20px;
-      color: #222;
+      margin: 0;
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--fg);
+      line-height: 1.55;
+      min-height: 100vh;
+      transition: background var(--transition), color var(--transition);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
-    h1 { font-size: 28px; margin-bottom: 8px; }
-    p.lead { color: #666; margin-top: 0; }
-    .card {
-      border: 1px solid #ddd;
+    a { color: var(--primary); text-decoration: none; }
+    a:hover { color: var(--primary-hover); }
+    code {
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-size: 0.9em;
+      background: var(--bg-elev-2);
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+
+    /* ========================================================================
+       LAYOUT
+       ======================================================================== */
+    .container {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Header */
+    header {
+      padding: 20px 0;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: color-mix(in srgb, var(--bg) 80%, transparent);
+      backdrop-filter: saturate(180%) blur(12px);
+      -webkit-backdrop-filter: saturate(180%) blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    header .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 18px;
+      color: var(--fg);
+    }
+    .brand-mark {
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+      color: white;
       border-radius: 8px;
-      padding: 24px;
-      margin: 20px 0;
-      background: #fafafa;
+      box-shadow: var(--shadow-sm);
     }
-    label { display: block; font-weight: 600; margin-bottom: 6px; }
-    input[type="number"] {
-      width: 100px; padding: 6px; border: 1px solid #ccc; border-radius: 4px;
+
+    /* Theme toggle */
+    .theme-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      background: var(--bg-elev-2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--fg-muted);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all var(--transition);
+      font-family: inherit;
     }
-    button {
-      background: #2a7ae2; color: white; border: 0;
-      padding: 10px 20px; border-radius: 4px; font-size: 16px; cursor: pointer;
+    .theme-toggle:hover {
+      border-color: var(--border-strong);
+      color: var(--fg);
     }
-    button.secondary { background: #888; }
-    button.danger { background: #c44; }
-    button:disabled { background: #999; cursor: not-allowed; }
-    button:hover:not(:disabled) { filter: brightness(0.9); }
+    .theme-toggle svg {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+    .theme-toggle .icon-sun { display: none; }
+    .theme-toggle .icon-moon { display: block; }
+    [data-theme="dark"] .theme-toggle .icon-sun { display: block; }
+    [data-theme="dark"] .theme-toggle .icon-moon { display: none; }
+
+    /* Hero */
+    .hero {
+      padding: 56px 0 32px;
+      text-align: center;
+    }
+    .hero h1 {
+      margin: 0 0 12px;
+      font-size: 40px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, var(--fg), var(--fg-muted));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .hero p {
+      margin: 0;
+      color: var(--fg-muted);
+      font-size: 17px;
+      max-width: 520px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 28px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow-sm);
+      transition: box-shadow var(--transition), background var(--transition);
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .card-icon {
+      width: 36px; height: 36px;
+      display: grid; place-items: center;
+      background: var(--primary-soft);
+      color: var(--primary);
+      border-radius: var(--radius-md);
+      flex-shrink: 0;
+    }
+    .card-icon svg { width: 20px; height: 20px; }
+    .card-title {
+      margin: 0;
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--fg);
+    }
+    .card-subtitle {
+      margin: 2px 0 0;
+      font-size: 13px;
+      color: var(--fg-subtle);
+    }
+
     /* Drop zone */
     .dropzone {
-      border: 2px dashed #aaa;
-      border-radius: 8px;
-      padding: 40px;
+      position: relative;
+      border: 2px dashed var(--border-strong);
+      border-radius: var(--radius-lg);
+      padding: 40px 24px;
       text-align: center;
       cursor: pointer;
-      transition: all 0.15s;
-      background: #fff;
+      background: var(--bg-elev-2);
+      transition: all var(--transition);
+      overflow: hidden;
+    }
+    .dropzone::before {
+      content: "";
+      position: absolute; inset: 0;
+      background: linear-gradient(135deg, transparent 0%, var(--primary-soft) 100%);
+      opacity: 0;
+      transition: opacity var(--transition);
     }
     .dropzone:hover, .dropzone.dragover {
-      border-color: #2a7ae2;
-      background: #eef4ff;
+      border-color: var(--primary);
+      border-style: solid;
     }
-    .dropzone .big {
-      font-size: 18px; color: #666; margin-bottom: 4px;
+    .dropzone:hover::before, .dropzone.dragover::before { opacity: 0.5; }
+    .dropzone > * { position: relative; }
+    .dropzone .icon-upload {
+      width: 48px; height: 48px;
+      margin: 0 auto 12px;
+      color: var(--primary);
+      display: grid; place-items: center;
+      background: var(--primary-soft);
+      border-radius: 50%;
     }
-    .dropzone .small { font-size: 13px; color: #999; }
+    .dropzone .icon-upload svg { width: 24px; height: 24px; }
+    .dropzone .title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--fg);
+      margin-bottom: 4px;
+    }
+    .dropzone .subtitle {
+      font-size: 13px;
+      color: var(--fg-subtle);
+    }
+    .dropzone .filename {
+      margin-top: 12px;
+      padding: 8px 12px;
+      background: var(--primary-soft);
+      color: var(--primary);
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: var(--radius-sm);
+      display: inline-block;
+    }
     .dropzone input[type=file] { display: none; }
-    /* Status */
-    #status { margin-top: 16px; }
-    .success { color: #2a7; font-weight: 600; }
-    .error { color: #c33; font-weight: 600; }
-    .link {
-      display: inline-block; margin-top: 8px; padding: 8px 12px;
-      background: #eef; border-radius: 4px; text-decoration: none; color: #27c;
+
+    /* Form fields */
+    .field {
+      margin-top: 20px;
     }
-    .small { font-size: 13px; color: #888; }
-    /* Planos list */
+    .field label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--fg);
+      margin-bottom: 8px;
+    }
+    .field .hint {
+      display: block;
+      font-size: 12px;
+      color: var(--fg-subtle);
+      margin-top: 6px;
+    }
+    .input-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .input-number {
+      width: 110px;
+      padding: 10px 12px;
+      font: inherit;
+      font-size: 15px;
+      color: var(--fg);
+      background: var(--bg-elev-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      transition: all var(--transition);
+    }
+    .input-number:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-soft);
+    }
+    .input-suffix {
+      font-size: 14px;
+      color: var(--fg-subtle);
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 11px 20px;
+      font: inherit;
+      font-size: 15px;
+      font-weight: 600;
+      border: 0;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all var(--transition);
+      white-space: nowrap;
+    }
+    .btn svg { width: 16px; height: 16px; }
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+      box-shadow: var(--shadow-sm);
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: var(--primary-hover);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+    .btn-primary:active:not(:disabled) { transform: translateY(0); }
+    .btn-primary:disabled {
+      background: var(--fg-subtle);
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    .btn-secondary {
+      background: var(--bg-elev-2);
+      color: var(--fg);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover {
+      background: var(--border);
+      border-color: var(--border-strong);
+    }
+    .btn-danger {
+      background: transparent;
+      color: var(--danger);
+      border: 1px solid var(--border);
+    }
+    .btn-danger:hover {
+      background: var(--danger-soft);
+      border-color: var(--danger);
+    }
+    .btn-block { width: 100%; margin-top: 20px; }
+
+    /* Status messages */
+    #status { margin-top: 16px; min-height: 0; }
+    #status:empty { display: none; }
+    .alert {
+      padding: 12px 16px;
+      border-radius: var(--radius-md);
+      font-size: 14px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      border: 1px solid transparent;
+    }
+    .alert svg { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; }
+    .alert-success {
+      background: var(--success-soft);
+      color: var(--success);
+      border-color: color-mix(in srgb, var(--success) 30%, transparent);
+    }
+    .alert-error {
+      background: var(--danger-soft);
+      color: var(--danger);
+      border-color: color-mix(in srgb, var(--danger) 30%, transparent);
+    }
+    .alert .body { flex: 1; }
+    .alert .body p { margin: 4px 0; }
+    .alert .body p:first-child { margin-top: 0; font-weight: 600; }
+    .alert .body p:last-child { margin-bottom: 0; }
+    .alert .body code { background: rgba(0, 0, 0, 0.1); }
+
+    /* Plano list */
+    .planos-empty {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--fg-subtle);
+      font-size: 14px;
+    }
     .plano {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 12px; border: 1px solid #eee; border-radius: 6px;
-      background: #fff; margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 14px 16px;
+      background: var(--bg-elev-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      margin-bottom: 8px;
+      transition: all var(--transition);
     }
-    .plano-info { flex: 1; }
-    .plano-info strong { display: block; }
-    .plano-info span { color: #888; font-size: 13px; }
+    .plano:hover {
+      border-color: var(--border-strong);
+      background: var(--bg-elev);
+    }
+    .plano-thumb {
+      width: 48px; height: 48px;
+      display: grid; place-items: center;
+      background: var(--primary-soft);
+      color: var(--primary);
+      border-radius: var(--radius-sm);
+      flex-shrink: 0;
+    }
+    .plano-thumb svg { width: 22px; height: 22px; }
+    .plano-info { flex: 1; min-width: 0; }
+    .plano-info .name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--fg);
+    }
+    .plano-info .meta {
+      font-size: 12px;
+      color: var(--fg-subtle);
+      margin-top: 2px;
+    }
     .plano-actions { display: flex; gap: 6px; }
-    .plano-actions a, .plano-actions button {
-      padding: 6px 12px; font-size: 13px; text-decoration: none;
-      color: white; border-radius: 4px;
+    .plano-actions .btn {
+      padding: 7px 12px;
+      font-size: 13px;
     }
-    .plano-actions a { background: #2a7ae2; }
-    .plano-actions button.danger { background: #c44; }
-    h2 { font-size: 18px; margin: 0 0 12px; }
+    .plano-actions .btn svg { width: 14px; height: 14px; }
+
+    /* Tip box */
+    .tip {
+      margin-top: 24px;
+      padding: 14px 16px;
+      background: var(--bg-elev-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      color: var(--fg-muted);
+      display: flex;
+      gap: 10px;
+    }
+    .tip svg {
+      width: 16px; height: 16px; flex-shrink: 0; margin-top: 2px;
+      color: var(--fg-subtle);
+    }
+
+    /* Footer */
+    footer {
+      padding: 32px 0 24px;
+      text-align: center;
+      color: var(--fg-subtle);
+      font-size: 12px;
+    }
+
+    /* Small */
+    .text-muted { color: var(--fg-muted); }
+    .text-subtle { color: var(--fg-subtle); font-size: 12px; }
   </style>
 </head>
 <body>
-  <h1>vista3D</h1>
-  <p class="lead">Sube un plano en SVG y obtén una vista 3D compartible.</p>
+  <header>
+    <div class="container row">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+            <path d="M2 17l10 5 10-5"/>
+            <path d="M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <span>vista3D</span>
+      </div>
+      <button id="theme-toggle" class="theme-toggle" aria-label="Cambiar tema" type="button">
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5"/>
+          <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+        </svg>
+        <span class="theme-label">Oscuro</span>
+      </button>
+    </div>
+  </header>
 
-  <div class="card">
-    <form id="form">
-      <label>Plano SVG (arrastra o haz click)</label>
-      <div class="dropzone" id="dropzone">
-        <div class="big">Arrastra aquí tu archivo .svg</div>
-        <div class="small">o haz click para seleccionar</div>
-        <div id="filename" class="small" style="margin-top: 8px; color: #2a7ae2;"></div>
-        <input type="file" id="svg" name="svg" accept=".svg,image/svg+xml" required>
+  <main>
+    <div class="container">
+      <section class="hero">
+        <h1>Convierte planos SVG en 3D</h1>
+        <p>Sube un plano vectorial y obtén una vista 3D compartible por enlace en segundos.</p>
+      </section>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </div>
+          <div>
+            <h2 class="card-title">Nuevo plano</h2>
+            <p class="card-subtitle">Arrastra un SVG o haz click para seleccionarlo</p>
+          </div>
+        </div>
+
+        <form id="form">
+          <div class="dropzone" id="dropzone" role="button" tabindex="0">
+            <div class="icon-upload">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </div>
+            <div class="title">Arrastra aquí tu archivo .svg</div>
+            <div class="subtitle">o haz click para seleccionar</div>
+            <div id="filename" class="filename" style="display: none;"></div>
+            <input type="file" id="svg" name="svg" accept=".svg,image/svg+xml" required>
+          </div>
+
+          <div class="field">
+            <label for="altura">Altura de extrusión</label>
+            <div class="input-group">
+              <input type="number" id="altura" name="alturaCm" class="input-number" value="250" min="10" max="9999" step="10">
+              <span class="input-suffix">cm</span>
+            </div>
+            <span class="hint">250 cm = 2.5 metros (típico para una habitación).</span>
+          </div>
+
+          <button type="submit" id="btn" class="btn btn-primary btn-block">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+              <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+              <line x1="12" y1="22.08" x2="12" y2="12"/>
+            </svg>
+            <span>Generar vista 3D</span>
+          </button>
+        </form>
+        <div id="status"></div>
       </div>
 
-      <div style="margin-top: 16px;">
-        <label for="altura">Altura de extrusión (cm)</label>
-        <input type="number" id="altura" name="alturaCm" value="250" min="10" max="9999" step="10">
-        <span class="small">250 = 2.5 metros (típico para una habitación).</span>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/>
+            </svg>
+          </div>
+          <div>
+            <h2 class="card-title">Planos guardados <span id="count" class="text-subtle"></span></h2>
+            <p class="card-subtitle">Tus subidas recientes</p>
+          </div>
+        </div>
+        <div id="planos">
+          <div class="planos-empty">Cargando...</div>
+        </div>
       </div>
 
-      <button type="submit" id="btn" style="margin-top: 16px;">Generar vista 3D</button>
-    </form>
-    <div id="status"></div>
-  </div>
+      <div class="tip">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="16" x2="12" y2="12"/>
+          <line x1="12" y1="8" x2="12.01" y2="8"/>
+        </svg>
+        <div>
+          Ejecuta <code>npm run sample</code> para regenerar el SVG de prueba, o descárgalo directamente:
+          <a href="/public/samples/sample-room.svg" download>sample-room.svg</a> ·
+          <a href="/public/samples/piso-3hab.svg" download>piso-3hab.svg</a>
+        </div>
+      </div>
+    </div>
+  </main>
 
-  <div class="card">
-    <h2>Planos guardados <span class="small" id="count"></span></h2>
-    <div id="planos"><p class="small">Cargando...</p></div>
-  </div>
-
-  <p class="small">
-    Tip: ejecuta <code>npm run sample</code> para regenerar el SVG de prueba en
-    <code>public/samples/sample-room.svg</code>, o descárgalo directamente:
-    <a href="/public/samples/sample-room.svg" download>sample-room.svg</a>.
-  </p>
+  <footer>
+    vista3D · app interna · v0.3.2
+  </footer>
 
   <script>
+    // ========================================================================
+    // THEME
+    // ========================================================================
+    const THEME_KEY = "vista3d-theme";
+    const themeToggle = document.getElementById("theme-toggle");
+    const themeLabel = themeToggle.querySelector(".theme-label");
+    const root = document.documentElement;
+
+    function applyTheme(theme) {
+      root.setAttribute("data-theme", theme);
+      themeLabel.textContent = theme === "dark" ? "Claro" : "Oscuro";
+      try { localStorage.setItem(THEME_KEY, theme); } catch {}
+    }
+    // Cargar tema persistido; default = light. Si el usuario tiene dark
+    // preference en el sistema y nunca ha elegido, usamos dark.
+    let saved;
+    try { saved = localStorage.getItem(THEME_KEY); } catch {}
+    if (saved === "dark" || saved === "light") {
+      applyTheme(saved);
+    } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+      applyTheme("dark");
+    } else {
+      applyTheme("light");
+    }
+    themeToggle.addEventListener("click", () => {
+      applyTheme(root.getAttribute("data-theme") === "dark" ? "light" : "dark");
+    });
+
+    // ========================================================================
+    // DOM
+    // ========================================================================
     const form = document.getElementById("form");
     const status = document.getElementById("status");
     const btn = document.getElementById("btn");
@@ -126,9 +640,14 @@
     const planosEl = document.getElementById("planos");
     const countEl = document.getElementById("count");
 
-    // Click en dropzone abre el file picker
-    dropzone.addEventListener("click", () => fileInput.click());
-    // Drag & drop
+    // Dropzone: click abre picker
+    function openPicker() { fileInput.click(); }
+    dropzone.addEventListener("click", openPicker);
+    dropzone.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPicker(); }
+    });
+
+    // Dropzone: drag & drop
     dropzone.addEventListener("dragover", (e) => {
       e.preventDefault();
       dropzone.classList.add("dragover");
@@ -141,49 +660,66 @@
       dropzone.classList.remove("dragover");
       const file = e.dataTransfer.files[0];
       if (file) {
-        // Truco: transferimos el archivo al input para que el FormData lo recoja.
         const dt = new DataTransfer();
         dt.items.add(file);
         fileInput.files = dt.files;
         showFilename(file.name);
       }
     });
-    // Cambio manual en el input (click + seleccionar)
     fileInput.addEventListener("change", () => {
       if (fileInput.files[0]) showFilename(fileInput.files[0].name);
     });
     function showFilename(name) {
       filename.textContent = `✓ ${name}`;
+      filename.style.display = "inline-block";
+    }
+    function clearFilename() {
+      filename.textContent = "";
+      filename.style.display = "none";
     }
 
-    // Submit (upload)
+    // Submit
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       status.innerHTML = "";
       btn.disabled = true;
-      btn.textContent = "Subiendo...";
+      btn.querySelector("span").textContent = "Subiendo...";
       const fd = new FormData(form);
       try {
         const res = await fetch("/upload", { method: "POST", body: fd });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Error desconocido");
         status.innerHTML = `
-          <p class="success">✓ Vista 3D generada</p>
-          <p>Identificador: <code>${data.id}</code></p>
-          <p>Dimensiones del plano: <strong>${data.bounds.widthCm}</strong> x <strong>${data.bounds.heightCm}</strong> cm
-            (altura extruida: <strong>${data.heightCm}</strong> cm)</p>
-          <a class="link" href="${data.viewUrl}">Abrir vista 3D →</a>
-          <p class="small" style="margin-top: 12px;">URL compartible: <code>${location.origin}${data.viewUrl}</code></p>
+          <div class="alert alert-success">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+            <div class="body">
+              <p>Vista 3D generada</p>
+              <p>Dimensiones: <strong>${data.bounds.widthCm}</strong> × <strong>${data.bounds.heightCm}</strong> cm · altura extruida <strong>${data.heightCm}</strong> cm</p>
+              <p><a href="${data.viewUrl}">Abrir vista 3D →</a></p>
+              <p>URL compartible: <code>${location.origin}${data.viewUrl}</code></p>
+            </div>
+          </div>
         `;
-        // Reset y refrescar lista
         fileInput.value = "";
-        filename.textContent = "";
+        clearFilename();
         await refreshPlanos();
       } catch (err) {
-        status.innerHTML = `<p class="error">✗ ${err.message}</p>`;
+        status.innerHTML = `
+          <div class="alert alert-error">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <div class="body">${escapeHtml(err.message)}</div>
+          </div>
+        `;
       } finally {
         btn.disabled = false;
-        btn.textContent = "Generar vista 3D";
+        btn.querySelector("span").textContent = "Generar vista 3D";
       }
     });
 
@@ -194,13 +730,13 @@
         const data = await res.json();
         renderPlanos(data.planos);
       } catch (err) {
-        planosEl.innerHTML = `<p class="error">✗ ${err.message}</p>`;
+        planosEl.innerHTML = `<div class="alert alert-error"><div class="body">${escapeHtml(err.message)}</div></div>`;
       }
     }
     function renderPlanos(planos) {
-      countEl.textContent = `(${planos.length})`;
+      countEl.textContent = planos.length > 0 ? `(${planos.length})` : "";
       if (planos.length === 0) {
-        planosEl.innerHTML = `<p class="small">No hay planos todavía. Sube el primero arriba.</p>`;
+        planosEl.innerHTML = `<div class="planos-empty">No hay planos todavía. Sube el primero arriba.</div>`;
         return;
       }
       planosEl.innerHTML = "";
@@ -210,21 +746,26 @@
         const date = new Date(p.createdAt);
         const datestr = date.toLocaleString("es-ES", { dateStyle: "short", timeStyle: "short" });
         div.innerHTML = `
+          <div class="plano-thumb">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/>
+            </svg>
+          </div>
           <div class="plano-info">
-            <strong>${p.widthCm} × ${p.heightCm} cm</strong>
-            <span>${datestr} · id: <code>${p.id.slice(0, 8)}</code></span>
+            <div class="name">${p.widthCm} × ${p.heightCm} cm</div>
+            <div class="meta">${datestr} · ${p.id.slice(0, 8)}</div>
           </div>
           <div class="plano-actions">
-            <a href="${p.viewUrl}">Ver</a>
-            <button class="danger" data-id="${p.id}">Borrar</button>
+            <a href="${p.viewUrl}" class="btn btn-secondary">Ver</a>
+            <button class="btn btn-danger" data-id="${p.id}">Borrar</button>
           </div>
         `;
-        div.querySelector("button.danger").addEventListener("click", () => borrar(p.id, p.widthCm, p.heightCm));
+        div.querySelector("button.btn-danger").addEventListener("click", () => borrar(p.id, p.widthCm, p.heightCm));
         planosEl.appendChild(div);
       }
     }
     async function borrar(id, w, h) {
-      if (!confirm(`¿Borrar el plano ${w}×${h}cm? Esta acción no se puede deshacer.`)) return;
+      if (!confirm(`¿Borrar el plano ${w}×${h} cm? Esta acción no se puede deshacer.`)) return;
       try {
         const res = await fetch(`/api/svg/${id}`, { method: "DELETE" });
         if (!res.ok) {
@@ -237,7 +778,12 @@
       }
     }
 
-    // Carga inicial
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      }[c]));
+    }
+
     refreshPlanos();
   </script>
 </body>
