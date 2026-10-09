@@ -1243,6 +1243,92 @@ document.addEventListener("mousemove", (e) => {
 // Construir los colliders tras cargar las paredes
 fpsColliders = buildFpsCollider();
 
+// --- 7c) Mandos virtuales (móvil/tablet) -----------------------------------
+// Botones tipo cruceta en pantalla que simulan WASD. Se vinculan a
+// fpsKeys para que el bucle principal los lea igual que el teclado.
+(function setupFpsTouch() {
+  const dpadBtns = document.querySelectorAll(".fps-btn[data-key]");
+  if (dpadBtns.length === 0) return;
+
+  const setKey = (key, down) => {
+    if (down) fpsKeys[key] = true;
+    else fpsKeys[key] = false;
+  };
+
+  dpadBtns.forEach((btn) => {
+    const key = btn.dataset.key;
+    // Pointer events cubren touch + mouse, sin duplicar con el teclado
+    btn.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      btn.setPointerCapture(e.pointerId);
+      btn.classList.add("active");
+      setKey(key, true);
+    });
+    btn.addEventListener("pointerup", (e) => {
+      e.preventDefault();
+      btn.classList.remove("active");
+      setKey(key, false);
+    });
+    btn.addEventListener("pointercancel", (e) => {
+      btn.classList.remove("active");
+      setKey(key, false);
+    });
+    btn.addEventListener("pointerleave", (e) => {
+      // Si el dedo sale del boton sin soltar, soltar la tecla
+      if (btn.classList.contains("active")) {
+        btn.classList.remove("active");
+        setKey(key, false);
+      }
+    });
+    // Evitar el menu contextual al mantener pulsado
+    btn.addEventListener("contextmenu", (e) => e.preventDefault());
+  });
+
+  // Boton de salir
+  const exitBtn = document.getElementById("fps-btn-exit");
+  if (exitBtn) {
+    exitBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      fpsExit();
+    });
+  }
+})();
+
+// Arrastrar el dedo en cualquier parte del lado derecho de la pantalla
+// = mirar alrededor (yaw + pitch). Solo cuando NO estamos pulsando un
+// boton de la cruceta.
+(function setupFpsDragLook() {
+  const overlay = document.getElementById("fps-touch");
+  if (!overlay) return;
+  let dragging = false;
+  let lastX = 0, lastY = 0;
+
+  overlay.addEventListener("pointerdown", (e) => {
+    // Solo si el target es el overlay o el crosshair, no un boton
+    if (e.target.closest(".fps-btn") || e.target.closest(".fps-btn-exit")) return;
+    if (e.clientX < innerWidth / 2) return;  // solo lado derecho
+    dragging = true;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    try { overlay.setPointerCapture(e.pointerId); } catch {}
+  });
+  overlay.addEventListener("pointermove", (e) => {
+    if (!dragging || !fpsActive) return;
+    const dx = e.clientX - lastX;
+    const dy = e.clientY - lastY;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    fpsYaw -= dx * 0.005;
+    fpsPitch -= dy * 0.005;
+    const limit = Math.PI / 2 - 0.05;
+    if (fpsPitch > limit) fpsPitch = limit;
+    if (fpsPitch < -limit) fpsPitch = -limit;
+  });
+  const endDrag = () => { dragging = false; };
+  overlay.addEventListener("pointerup", endDrag);
+  overlay.addEventListener("pointercancel", endDrag);
+})();
+
   // Mueve la camara para enfocar la cara seleccionada de un elemento.
 // Desactivado: el muro es un Shape 2D extruido a grosor 0, asi que la
 // camara quedaba dentro del muro y veia solo geometria rara.

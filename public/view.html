@@ -424,6 +424,66 @@
       .fps-hud { font-size: 11px; padding: 8px 10px; }
     }
 
+    /* ---- Mandos virtuales para móvil/tablet ---- */
+    .fps-touch {
+      display: none;  /* Solo se muestra en pantallas tactiles */
+      position: fixed; inset: 0; pointer-events: none; z-index: 51;
+    }
+    .fps-touch[hidden] { display: none; }
+    .fps-dpad {
+      position: absolute; bottom: 30px; left: 30px;
+      width: 180px; height: 180px;
+      pointer-events: auto;
+      touch-action: none;  /* evitar scroll del navegador al arrastrar */
+    }
+    .fps-btn {
+      position: absolute;
+      width: 56px; height: 56px;
+      background: rgba(20, 14, 8, 0.7);
+      border: 1px solid rgba(232, 216, 184, 0.4);
+      border-radius: 50%;
+      color: #e8d8b8;
+      font-size: 24px;
+      line-height: 1;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 80ms;
+      display: flex; align-items: center; justify-content: center;
+      touch-action: none;
+    }
+    .fps-btn:active, .fps-btn.active {
+      background: rgba(232, 216, 184, 0.4);
+      color: #1a1408;
+    }
+    .fps-btn-up    { top: 0;    left: 50%; transform: translateX(-50%); }
+    .fps-btn-down  { bottom: 0; left: 50%; transform: translateX(-50%); }
+    .fps-btn-left  { left: 0;   top: 50%;  transform: translateY(-50%); }
+    .fps-btn-right { right: 0;  top: 50%;  transform: translateY(-50%); }
+    .fps-btn-exit {
+      position: absolute; top: 70px; right: 16px;
+      width: auto; height: 40px;
+      padding: 0 14px;
+      border-radius: 20px;
+      background: rgba(180, 60, 60, 0.85);
+      color: white;
+      font-size: 13px; font-weight: 600;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      pointer-events: auto;
+      touch-action: manipulation;
+    }
+    .fps-btn-exit:active { background: rgba(220, 80, 80, 1); }
+
+    /* Mostrar los mandos en pantallas pequenas (movil/tablet) Y en
+       cualquier dispositivo que se identifique como tactil. */
+    @media (max-width: 900px), (hover: none) and (pointer: coarse) {
+      .fps-touch { display: block; }
+      /* En pantallas pequenas, ocultar el HUD de instrucciones
+         (los botones ya hacen la funcion). */
+      .fps-hud { display: none; }
+    }
+
     /* Cursor pointer cuando hay elemento bajo el ratón */
     canvas.pickable { cursor: pointer; }
 
@@ -476,6 +536,19 @@
       <div class="fps-row">ESC &nbsp; Salir del recorrido</div>
     </div>
     <div class="fps-crosshair">+</div>
+
+    <!-- Mandos virtuales SOLO en móvil/tablet. Se ocultan en desktop. -->
+    <div class="fps-touch" id="fps-touch">
+      <!-- Cruceta de movimiento (izquierda) -->
+      <div class="fps-dpad">
+        <button class="fps-btn fps-btn-up"    data-key="w" type="button">▲</button>
+        <button class="fps-btn fps-btn-left"  data-key="a" type="button">◀</button>
+        <button class="fps-btn fps-btn-right" data-key="d" type="button">▶</button>
+        <button class="fps-btn fps-btn-down"  data-key="s" type="button">▼</button>
+      </div>
+      <!-- Boton de salir -->
+      <button class="fps-btn-exit" id="fps-btn-exit" type="button">✕ Salir</button>
+    </div>
   </div>
 
   <button id="sidebar-toggle" type="button" title="Abrir menú" aria-label="Abrir menú">
