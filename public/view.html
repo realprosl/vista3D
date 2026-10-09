@@ -119,6 +119,68 @@
       opacity: 1; visibility: visible;
       transform: translateY(0);
     }
+
+    /* Panel de materiales flotante (esquina superior derecha). */
+    #materials-panel {
+      position: absolute; top: 16px; right: 16px; z-index: 5;
+      display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+    }
+    .mp-btn {
+      width: 40px; height: 40px; padding: 0; border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 8px; background: rgba(255,255,255,0.92);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+      cursor: pointer; color: #1a1d23;
+      display: grid; place-items: center;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .mp-btn:hover { background: #fff; }
+    .mp-btn:active { transform: scale(0.95); }
+    .mp-btn svg { width: 20px; height: 20px; }
+    .mp-btn.on { background: #2a7ae2; color: #fff; border-color: #2a7ae2; }
+    #materials-body {
+      width: 320px; max-width: calc(100vw - 32px);
+      background: rgba(255,255,255,0.97);
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 10px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+      padding: 12px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .mp-row { display: flex; align-items: center; gap: 10px; }
+    .mp-section { display: flex; flex-direction: column; gap: 8px; }
+    .mp-section-title {
+      font-size: 11px; font-weight: 700; color: #5a6171;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      padding-bottom: 2px; border-bottom: 1px solid rgba(0,0,0,0.06);
+    }
+    .mp-swatch {
+      width: 36px; height: 36px; border-radius: 6px; flex-shrink: 0;
+      border: 1px solid rgba(0,0,0,0.12);
+      background-color: #c4a988;
+    }
+    .mp-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+    .mp-name { font-size: 12px; font-weight: 600; color: #1a1d23; }
+    .mp-controls { display: flex; gap: 6px; }
+    .mp-controls input[type=color] {
+      width: 36px; height: 28px; padding: 0; border: 1px solid rgba(0,0,0,0.1);
+      border-radius: 4px; cursor: pointer; background: transparent; flex-shrink: 0;
+    }
+    .mp-controls select {
+      flex: 1; min-width: 0; height: 28px; padding: 0 6px;
+      font: inherit; font-size: 12px; color: #1a1d23;
+      background: #fff; border: 1px solid rgba(0,0,0,0.1);
+      border-radius: 4px; cursor: pointer;
+    }
+    .mp-reset {
+      align-self: stretch; padding: 6px 12px; font: inherit; font-size: 12px;
+      font-weight: 600; color: #1a1d23; background: #f0f2f7;
+      border: 1px solid rgba(0,0,0,0.08); border-radius: 6px; cursor: pointer;
+    }
+    .mp-reset:hover { background: #e3e6ed; }
+
+    @media (max-width: 720px) {
+      #materials-body { width: 240px; }
+    }
   </style>
 </head>
 <body>
@@ -139,6 +201,87 @@
   </div>
 
   <a id="back" href="/" title="Volver a la página de inicio">← Volver</a>
+
+  <div id="materials-panel">
+    <button id="materials-toggle" class="mp-btn" type="button" title="Personalizar colores y texturas" aria-label="Materiales">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4"/>
+      </svg>
+    </button>
+    <div id="materials-body" hidden>
+      <div class="mp-section">
+        <div class="mp-section-title">Suelo</div>
+        <div class="mp-row" data-key="suelo">
+          <div class="mp-swatch" id="mp-swatch-suelo"></div>
+          <div class="mp-info">
+            <div class="mp-name">Cara superior</div>
+            <div class="mp-controls">
+              <input type="color" id="mp-suelo-color" value="#c4a988" title="Color de la cara superior del suelo">
+              <select id="mp-suelo-texture" title="Textura del suelo">
+                <option value="liso">Liso</option>
+                <option value="madera">Madera</option>
+                <option value="baldosa">Baldosa</option>
+                <option value="ladrillo">Ladrillo</option>
+                <option value="marmol">Mármol</option>
+                <option value="piedra">Piedra</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="mp-row" data-key="suelo-debajo">
+          <div class="mp-swatch" id="mp-swatch-suelo-debajo"></div>
+          <div class="mp-info">
+            <div class="mp-name">Cara inferior (forjado)</div>
+            <div class="mp-controls">
+              <input type="color" id="mp-suelo-debajo-color" value="#6a5a48" title="Color de la cara inferior del suelo">
+              <select id="mp-suelo-debajo-texture" title="Textura del forjado">
+                <option value="liso">Liso</option>
+                <option value="madera">Madera</option>
+                <option value="baldosa">Baldosa</option>
+                <option value="ladrillo">Ladrillo</option>
+                <option value="marmol">Mármol</option>
+                <option value="piedra">Piedra</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mp-section" id="mp-walls-section">
+        <div class="mp-section-title">Paredes</div>
+        <div id="mp-walls-list">
+          <!-- Se rellena desde viewer.js: una fila por pared detectada
+               (exteriores N/S/E/O + interiores con id o data-name). -->
+        </div>
+      </div>
+
+      <div class="mp-section">
+        <div class="mp-section-title">Cristal ventanas</div>
+        <div class="mp-row" data-key="cristal">
+          <div class="mp-swatch" id="mp-swatch-cristal"></div>
+          <div class="mp-info">
+            <div class="mp-name">Cristal (azul por defecto)</div>
+            <div class="mp-controls">
+              <input type="color" id="mp-cristal-color" value="#b8d8f0" title="Color del cristal">
+              <select id="mp-cristal-texture" title="Textura del cristal">
+                <option value="liso">Liso</option>
+                <option value="madera">Madera</option>
+                <option value="baldosa">Baldosa</option>
+                <option value="ladrillo">Ladrillo</option>
+                <option value="marmol">Mármol</option>
+                <option value="piedra">Piedra</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button type="button" id="mp-reset" class="mp-reset" title="Restablecer valores por defecto">
+        Restablecer
+      </button>
+    </div>
+  </div>
 
   <div id="controls">
     <button id="toggle-walls" class="toggle on" type="button" title="Mostrar u ocultar las paredes exteriores del piso">

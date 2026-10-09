@@ -26,6 +26,9 @@ import * as THREE from "three";
 // que no hacen import puedan acceder via window.THREE.
 window.THREE = THREE;
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+// textures.js NO importa THREE (lo coge de window) para evitar el bug
+// "Identifier 'THREE' has already been declared" en Chrome.
+import { getTexture, listTextures } from "./textures.js";
 
 // --- Estado ----------------------------------------------------------------
 const id = location.pathname.split("/").pop(); // /v/<id>
@@ -266,6 +269,15 @@ const cz = (minY + maxY) / 2;
 const translate = ([x, y]) => [x - cx, y - cz];
 const mainLocal = mainContour.map(translate);
 
+// Bounding box de las paredes en coords LOCALES (post-translate).
+let localMinX = Infinity, localMinY = Infinity, localMaxX = -Infinity, localMaxY = -Infinity;
+for (const p of mainLocal) {
+  if (p[0] < localMinX) localMinX = p[0];
+  if (p[0] > localMaxX) localMaxX = p[0];
+  if (p[1] < localMinY) localMinY = p[1];
+  if (p[1] > localMaxY) localMaxY = p[1];
+}
+
 const sueloShape = new THREE.Shape();
 sueloShape.moveTo(mainLocal[0][0], mainLocal[0][1]);
 for (let i = 1; i < mainLocal.length; i++) {
@@ -278,16 +290,10 @@ const sueloGeom = new THREE.ExtrudeGeometry(sueloShape, {
   bevelEnabled: false,
 });
 sueloGeom.rotateX(-Math.PI / 2);
-// sueloMat / paredMat / cristalMat se declaran con "let" aqui para evitar
-// el ReferenceError de "temporal dead zone" cuando esta seccion del codigo
-// se ejecuta antes que la seccion 5b donde se asignan los materiales.
-// El material se asigna mas abajo, antes de que el render loop arranque.
-let sueloMat, paredMat, cristalMat;
-const suelo = new THREE.Mesh(sueloGeom, sueloMat);
-suelo.position.set(widthCm / 2, 0, heightCm / 2);
-suelo.castShadow = true;
-suelo.receiveShadow = true;
-scene.add(suelo);
+// sueloMat / paredMat / cristalMat se declaran con "let" aqui y se
+// reasignan mas abajo (seccion 5b). Por eso la creacion del suelo se
+// hace DESPUES, una vez que sueloMat ya tiene su material asignado.
+let sueloMat, sueloDebajoMat, paredMat, paredExtMat, paredIntMat, cristalMat;
 
 // --- 6) Construir paredes --------------------------------------------------
 // Cada pared es un BoxGeometry orientado a lo largo de un segmento 2D.
@@ -302,7 +308,7 @@ scene.add(suelo);
 //   - Atributos data-color / data-texture en el SVG.
 //   - localStorage["vista3d-materials"] = JSON.
 //   - Query string ?sueloColor=...&paredTexture=... (cualquier propiedad).
-import { getTexture, listTextures } from "./textures.js";
+// (getTexture y listTextures se importan arriba del archivo, no aqui.)
 
 const STORAGE_KEY = "vista3d-materials";
 const DEFAULTS = {
@@ -352,9 +358,27 @@ function makeMaterial(cfg) {
 const matCfg = readMaterialConfig();
 // sueloMat, paredMat, cristalMat se reasignan aqui (fueron declarados
 // con "let" antes de la creacion del suelo para evitar TDZ).
-sueloMat = makeMaterial(matCfg.suelo);
-paredMat = makeMaterial(matCfg.pared);
-cristalMat = makeMaterial(matCfg.cristal);
+sueloMat = makeMaterial({ color: hexToInt(matCfg.suelo.color), texture: matCfg.suelo.texture, roughness: 0.85 });
+// Cara inferior del suelo: solo se ve al girar la camara por debajo. Por
+// defecto usa el mismo material; el panel de materiales la sobreescribe
+// luego con applyMPToMesh("suelo-debajo", ...).
+sueloDebajoMat = makeMaterial({ color: hexToInt(matCfg.suelo.color), texture: matCfg.suelo.texture, roughness: 0.85 });
+// Fachada (exterior) y pintura (interior) de la pared: array de 2 materiales.
+paredExtMat = makeMaterial({ color: hexToInt(matCfg.pared.color), texture: matCfg.pared.texture, roughness: 0.9 });
+paredIntMat = makeMaterial({ color: hexToInt(matCfg.pared.color), texture: matCfg.pared.texture, roughness: 0.9 });
+paredMat = paredExtMat; // alias para compatibilidad con codigo legacy
+cristalMat = makeMaterial({ color: hexToInt(matCfg.cristal.color), texture: matCfg.cristal.texture, roughness: 0.15, opacity: 0.55 });
+
+// --- 5c) Construir el suelo (ahora que sueloMat ya tiene valor) ------------
+// Materiales por cara: el ExtrudeGeometry genera caras arriba (indice 0)
+// y abajo (indice 1) mas caras laterales. Asignamos un array de materiales
+// para que cada cara se pueda personalizar. La cara inferior (sueloDebajoMat)
+// se puede editar desde el panel de materiales.
+const suelo = new THREE.Mesh(sueloGeom, [sueloMat, sueloDebajoMat]);
+suelo.position.set(widthCm / 2, 0, heightCm / 2);
+suelo.castShadow = true;
+suelo.receiveShadow = true;
+scene.add(suelo);
 
 // Paredes exteriores: cada lado del contorno.
 const exteriorWalls = [];
@@ -473,11 +497,16 @@ for (const seg of exteriorWalls) {
   if (isHoriz) {
     // Horizontal: el lado con y mas baja es N (en SVG, y crece hacia abajo,
     // asi que y=minY es el norte visual, y=maxY es el sur visual).
+    // Usamos los valores LOCALES de las paredes (ya centradas), no el
+    // rango global del SVG, porque pueden diferir si hay transformaciones.
     const y = (z1 + z2) / 2;
-    wall = y < (minY + maxY) / 2 ? "N" : "S";
+    const localMidY = (localMinY + localMaxY) / 2;
+    wall = y < localMidY ? "N" : "S";
   } else {
+    // Vertical: lado izquierdo (x<mid) es W (Oeste), lado derecho (x>mid) es E (Este).
     const x = (x1 + x2) / 2;
-    wall = x < (minX + maxX) / 2 ? "W" : "E";
+    const localMidX = (localMinX + localMaxX) / 2;
+    wall = x < localMidX ? "W" : "E";
   }
   // Buscar alzado que coincida con esta pared.
   let apertures = [];
@@ -507,9 +536,23 @@ for (const seg of exteriorWalls) {
 const exteriorGroup = new THREE.Group(); // paredes exteriores (toggle)
 const interiorGroup = new THREE.Group(); // paredes interiores
 const apertureGroup = new THREE.Group(); // solo los cristales de las ventanas
+
+// Map rapido: id de pared -> sus meshes (para que el panel de materiales
+// pueda asignar color/textura por pared individual reasignando el array
+// de materiales del mesh).
+const wallMeshLookup = new Map(); // id + "_meshes" -> Mesh[]
+
 for (const info of paredesInfo) {
   const meshes = buildWallMesh(info.seg[0], info.seg[1], info.apertures);
-  for (const m of meshes) exteriorGroup.add(m);
+  // Cada pared tiene un material individual: [fachada, interior].
+  // Por defecto ambos son los materiales globales; el panel de materiales
+  // los puede personalizar luego.
+  const wMat = [paredExtMat, paredIntMat];
+  for (const m of meshes) {
+    m.material = wMat;
+    exteriorGroup.add(m);
+  }
+  wallMeshLookup.set(info.wall + "_meshes", meshes);
   // Renderizar SOLO los cristales de las ventanas (no las puertas).
   // Las puertas dejan el hueco vacio para que se vea el interior/exterior.
   const [[x1, z1], [x2, z2]] = info.seg;
@@ -593,6 +636,230 @@ addEventListener("resize", () => {
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
 });
+
+// --- Panel de materiales (UI en el visor) ---------------------------------
+// Permite cambiar color y textura de suelo/pared/cristal SIN recargar.
+// Los cambios se persisten en localStorage y se aplican en vivo al material
+// del mesh correspondiente.
+const MP_STORAGE = "vista3d-materials";
+const MP_DEFAULTS_GLOBAL = {
+  "suelo":        { color: "#c4a988", texture: "liso" },
+  "suelo-debajo": { color: "#6a5a48", texture: "liso" },
+  "cristal":      { color: "#b8d8f0", texture: "liso" },
+  "pared-default": { color: "#d4c4a0", texture: "liso" },
+};
+
+// Detectar paredes: para v0.6 listaremos solo las exteriores (N/S/E/O)
+// con la posibilidad de nombrar el cuarto. Cada pared se identifica por
+// su orientacion (N, S, E, O) y se le puede asignar un nombre opcional
+// (data-room en el SVG) que aparece como sufijo en el panel.
+const wallList = []; // { id, label, defaultCfg }
+const wallIdSet = new Set();
+for (const info of paredesInfo) {
+  if (wallIdSet.has(info.wall)) continue;
+  wallIdSet.add(info.wall);
+  const niceName = { N: "Norte", S: "Sur", E: "Este", O: "Oeste" }[info.wall] || info.wall;
+  wallList.push({ id: info.wall, label: `Pared ${niceName}`, defaultCfg: { color: "#d4c4a0", texture: "liso" } });
+}
+
+const MP_DEFAULTS = { ...MP_DEFAULTS_GLOBAL };
+for (const w of wallList) MP_DEFAULTS["wall:" + w.id] = w.defaultCfg;
+const MP_KEYS = Object.keys(MP_DEFAULTS);
+
+function loadMP() {
+  try {
+    const stored = localStorage.getItem(MP_STORAGE);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      const out = JSON.parse(JSON.stringify(MP_DEFAULTS));
+      for (const k of MP_KEYS) {
+        if (parsed[k]) out[k] = { ...out[k], ...parsed[k] };
+      }
+      return out;
+    }
+  } catch {}
+  return JSON.parse(JSON.stringify(MP_DEFAULTS));
+}
+function saveMP(cfg) {
+  try { localStorage.setItem(MP_STORAGE, JSON.stringify(cfg)); } catch {}
+}
+function hexToInt(hex) {
+  if (typeof hex === "number") return hex;
+  if (typeof hex !== "string") return 0;
+  return parseInt(hex.replace("#", ""), 16);
+}
+function applyMPToMesh(key, cfg) {
+  if (key === "suelo") {
+    sueloMat = makeMaterial({ color: hexToInt(cfg.color), texture: cfg.texture, roughness: 0.85 });
+    suelo.material[0] = sueloMat;
+  } else if (key === "suelo-debajo") {
+    sueloDebajoMat = makeMaterial({ color: hexToInt(cfg.color), texture: cfg.texture, roughness: 0.85 });
+    suelo.material[1] = sueloDebajoMat;
+  } else if (key === "cristal") {
+    cristalMat = makeMaterial({ color: hexToInt(cfg.color), texture: cfg.texture, roughness: 0.15, opacity: 0.55 });
+    apertureGroup.traverse(o => { if (o.isMesh) o.material = cristalMat; });
+  } else if (key.startsWith("wall:")) {
+    // Color por pared individual. Reaplicamos como array de 2 materiales
+    // (fachada + interior) en los meshes de esa pared. La fachada usa el
+    // color elegido, el interior sigue con paredIntMat (pintura de la casa).
+    const wallId = key.slice("wall:".length);
+    const wMat = makeMaterial({ color: hexToInt(cfg.color), texture: cfg.texture, roughness: 0.9 });
+    const meshes = wallMeshLookup.get(wallId + "_meshes") || [];
+    for (const mesh of meshes) mesh.material = [wMat, paredIntMat];
+  } else if (key === "pared-default") {
+    // Si el usuario quiere un default para paredes sin color individual,
+    // se usa como fachada de las paredes. (Las paredes sin override
+    // individual siguen usando paredExtMat; esta opcion actualiza ese
+    // material para que las nuevas paredes lo hereden.)
+    paredExtMat = makeMaterial({ color: hexToInt(cfg.color), texture: cfg.texture, roughness: 0.9 });
+    const apply = (group) => group.traverse(o => {
+      if (o.isMesh) o.material = [paredExtMat, paredIntMat];
+    });
+    apply(exteriorGroup);
+    apply(interiorGroup);
+  }
+}
+
+// Renderizar la lista de paredes en el panel, una fila por pared.
+const wallsListEl = document.getElementById("mp-walls-list");
+const wallSelect = (id) => `
+  <select class="mp-wall-tex" data-wall="${id}" title="Textura de la pared">
+    <option value="liso">Liso</option>
+    <option value="madera">Madera</option>
+    <option value="baldosa">Baldosa</option>
+    <option value="ladrillo">Ladrillo</option>
+    <option value="marmol">Mármol</option>
+    <option value="piedra">Piedra</option>
+  </select>`;
+if (wallsListEl) {
+  for (const w of wallList) {
+    const row = document.createElement("div");
+    row.className = "mp-row";
+    row.dataset.key = "wall:" + w.id;
+    row.innerHTML = `
+      <div class="mp-swatch" id="mp-swatch-wall-${w.id}"></div>
+      <div class="mp-info">
+        <div class="mp-name">${w.label}</div>
+        <div class="mp-controls">
+          <input type="color" class="mp-wall-color" data-wall="${w.id}" value="${w.defaultCfg.color}" title="Color de la pared">
+          ${wallSelect(w.id)}
+        </div>
+      </div>`;
+    wallsListEl.appendChild(row);
+  }
+  // Fila extra: "todas las paredes" para poner un color por defecto a las
+  // paredes que no se editan individualmente.
+  const defRow = document.createElement("div");
+  defRow.className = "mp-row";
+  defRow.dataset.key = "pared-default";
+  defRow.innerHTML = `
+    <div class="mp-swatch" id="mp-swatch-pared-default"></div>
+    <div class="mp-info">
+      <div class="mp-name">Resto de paredes (default)</div>
+      <div class="mp-controls">
+        <input type="color" id="mp-pared-default-color" value="${MP_DEFAULTS["pared-default"].color}" title="Color por defecto de las paredes sin color individual">
+        <select id="mp-pared-default-texture" title="Textura por defecto">
+          <option value="liso">Liso</option>
+          <option value="madera">Madera</option>
+          <option value="baldosa">Baldosa</option>
+          <option value="ladrillo">Ladrillo</option>
+          <option value="marmol">Mármol</option>
+          <option value="piedra">Piedra</option>
+        </select>
+      </div>
+    </div>`;
+  wallsListEl.appendChild(defRow);
+}
+
+const mpBtn = document.getElementById("materials-toggle");
+const mpBody = document.getElementById("materials-body");
+if (mpBtn && mpBody) {
+  mpBtn.addEventListener("click", () => {
+    const isOpen = !mpBody.hidden;
+    mpBody.hidden = isOpen;
+    mpBtn.classList.toggle("on", !isOpen);
+  });
+  const mp = loadMP();
+  // Paredes individuales.
+  for (const w of wallList) {
+    const key = "wall:" + w.id;
+    const colorEl = document.querySelector(`.mp-wall-color[data-wall="${w.id}"]`);
+    const texEl = document.querySelector(`.mp-wall-tex[data-wall="${w.id}"]`);
+    const swatch = document.getElementById("mp-swatch-wall-" + w.id);
+    const update = () => { if (swatch) swatch.style.backgroundColor = mp[key].color; };
+    if (colorEl) {
+      colorEl.value = mp[key].color;
+      colorEl.addEventListener("input", () => {
+        mp[key].color = colorEl.value;
+        saveMP(mp);
+        update();
+        applyMPToMesh(key, mp[key]);
+      });
+    }
+    if (texEl) {
+      texEl.value = mp[key].texture;
+      texEl.addEventListener("change", () => {
+        mp[key].texture = texEl.value;
+        saveMP(mp);
+        applyMPToMesh(key, mp[key]);
+      });
+    }
+    update();
+  }
+  // Filas globales: suelo, suelo-debajo, cristal, pared-default.
+  for (const key of ["suelo", "suelo-debajo", "cristal", "pared-default"]) {
+    const colorEl = document.getElementById("mp-" + key + "-color");
+    const texEl = document.getElementById("mp-" + key + "-texture");
+    const swatch = document.getElementById("mp-swatch-" + key);
+    const update = () => { if (swatch) swatch.style.backgroundColor = mp[key].color; };
+    if (colorEl) {
+      colorEl.value = mp[key].color;
+      colorEl.addEventListener("input", () => {
+        mp[key].color = colorEl.value;
+        saveMP(mp);
+        update();
+        applyMPToMesh(key, mp[key]);
+      });
+    }
+    if (texEl) {
+      texEl.value = mp[key].texture;
+      texEl.addEventListener("change", () => {
+        mp[key].texture = texEl.value;
+        saveMP(mp);
+        applyMPToMesh(key, mp[key]);
+      });
+    }
+    update();
+  }
+  // Botón reset: limpia todas las configs (globales + paredes).
+  document.getElementById("mp-reset")?.addEventListener("click", () => {
+    for (const key of MP_KEYS) {
+      mp[key] = { ...MP_DEFAULTS[key] };
+    }
+    // Reset UI: paredes individuales.
+    for (const w of wallList) {
+      const key = "wall:" + w.id;
+      const colorEl = document.querySelector(`.mp-wall-color[data-wall="${w.id}"]`);
+      const texEl = document.querySelector(`.mp-wall-tex[data-wall="${w.id}"]`);
+      const swatch = document.getElementById("mp-swatch-wall-" + w.id);
+      if (colorEl) colorEl.value = mp[key].color;
+      if (texEl) texEl.value = mp[key].texture;
+      if (swatch) swatch.style.backgroundColor = mp[key].color;
+      applyMPToMesh(key, mp[key]);
+    }
+    // Reset UI: globales.
+    for (const key of ["suelo", "suelo-debajo", "cristal", "pared-default"]) {
+      const colorEl = document.getElementById("mp-" + key + "-color");
+      const texEl = document.getElementById("mp-" + key + "-texture");
+      const swatch = document.getElementById("mp-swatch-" + key);
+      if (colorEl) colorEl.value = mp[key].color;
+      if (texEl) texEl.value = mp[key].texture;
+      if (swatch) swatch.style.backgroundColor = mp[key].color;
+      applyMPToMesh(key, mp[key]);
+    }
+    saveMP(mp);
+  });
+}
 
 // --- Helpers ---------------------------------------------------------------
 /**
