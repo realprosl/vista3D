@@ -1348,14 +1348,15 @@ function animate() {
   if (fpsActive) {
     // Movimiento WASD en el plano horizontal
     let moveX = 0, moveZ = 0;
-    // W: hacia adelante en la direccion de la camara
+    // W: hacia adelante en la direccion de la camara.
+    // En Three.js con yaw=0 mirando al -Z, "delante" = (-sin(yaw), -cos(yaw)).
     if (fpsKeys.w) {
-      moveX += Math.sin(fpsYaw);
-      moveZ += Math.cos(fpsYaw);
-    }
-    if (fpsKeys.s) {
       moveX -= Math.sin(fpsYaw);
       moveZ -= Math.cos(fpsYaw);
+    }
+    if (fpsKeys.s) {
+      moveX += Math.sin(fpsYaw);
+      moveZ += Math.cos(fpsYaw);
     }
     // A: girar izquierda (rotacion)
     // D: girar derecha (rotacion)
