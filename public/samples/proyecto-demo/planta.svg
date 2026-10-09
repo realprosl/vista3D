@@ -1,16 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 900" width="1100" height="900">
-  <!--
-    PLANTA de casa unifamiliar 10x8m. Orientacion: Norte arriba.
-    Habitaciones: Salon-cocina (norte), Dormitorio (sur).
-    Muros: 4 exteriores + 1 vertical (cocina/salon) + 1 horizontal (dorm/salon).
-    Aperturas (todavia no se renderizan en 3D, son Fase B):
-      - Puerta 90cm en muro horizontal (x=600, y=400) entre salon y dorm.
-      - V1 120cm en muro sur (x=850, y=800) del dormitorio.
-      - V2 120cm en muro vertical (x=850, y=400) entre salon y exterior este.
-  -->
   <path d="M 50 50 L 1050 50 L 1050 850 L 50 850 Z" fill="#f5e6c8" stroke="#333" stroke-width="3"/>
-  <!-- Muros interiores con aperturas representadas como huecos en la linea. -->
   <line x1="300" y1="50" x2="300" y2="450" stroke="#5a3a1a" stroke-width="3"/>
   <line x1="300" y1="450" x2="605" y2="450" stroke="#5a3a1a" stroke-width="3"/>
   <line x1="695" y1="450" x2="1050" y2="450" stroke="#5a3a1a" stroke-width="3"/>

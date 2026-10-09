@@ -1,7 +1,14 @@
 /**
- * Visor 3D v0.3.0: extruye el contorno como SUELO fino, y dibuja cada
- * pared (exterior + interior) como un PLANO VERTICAL separado. Asi
- * se ven "las paredes" en lugar de "un cubo".
+ * Visor 3D v0.4.0b: renderiza aperturas (puertas y ventanas) en las
+ * paredes exteriores a partir de los alzados del proyecto.
+ *
+ * - Detecta si la URL apunta a un proyecto (/v/<uuid>) y carga
+ *   /api/projects/:id/alzados-meta. Si no, fallback a /api/svg/:id.
+ * - Identifica las 4 paredes exteriores (Norte, Sur, Este, Oeste)
+ *   del bounding box rectangular del contorno.
+ * - Empareja cada alzado con su pared por data-wall + data-wall-width.
+ * - Renderiza aperturas subdividiendo la pared en N+1 segmentos
+ *   con un hueco entre los rangos X declarados en el alzado.
  *
  * Cambios v0.3.0:
  *  - El contorno principal ya no se extruye como caja solida; se
@@ -41,12 +48,32 @@ function showError(msg) {
   errMsg.textContent = msg;
 }
 
-// --- 1) Cargar SVG ---------------------------------------------------------
+// --- 1) Detectar si es un proyecto y cargar SVG + alzados ------------------
+// Si la URL apunta a un proyecto, cargamos planta y alzados. Si no, fallback.
 let svgText;
+let alzadosMeta = []; // Array<{name, meta}> del proyecto
+let isProject = false;
 try {
-  const res = await fetch(`/api/svg/${id}`);
-  if (!res.ok) throw new Error(`No se pudo cargar el SVG (HTTP ${res.status})`);
-  svgText = await res.text();
+  // Probamos primero como proyecto: GET /api/projects/:id
+  const metaRes = await fetch(`/api/projects/${id}`);
+  if (metaRes.ok) {
+    isProject = true;
+    const [plantaRes, alzadosRes] = await Promise.all([
+      fetch(`/api/projects/${id}/planta`),
+      fetch(`/api/projects/${id}/alzados-meta`),
+    ]);
+    if (!plantaRes.ok) throw new Error(`No se pudo cargar la planta (HTTP ${plantaRes.status})`);
+    svgText = await plantaRes.text();
+    if (alzadosRes.ok) {
+      const data = await alzadosRes.json();
+      alzadosMeta = data.alzados || [];
+    }
+  } else {
+    // Fallback legacy: /api/svg/:id
+    const res = await fetch(`/api/svg/${id}`);
+    if (!res.ok) throw new Error(`No se pudo cargar el SVG (HTTP ${res.status})`);
+    svgText = await res.text();
+  }
 } catch (err) {
   showError(err.message);
   throw err;
@@ -226,34 +253,165 @@ const interiorWalls = interiorSegments.map(seg => {
   return [a, b];
 });
 
-function buildWallMesh([x1, z1], [x2, z2]) {
+function buildWallMesh([x1, z1], [x2, z2], apertures = []) {
+  // Construye una pared 3D entre (x1,z1) y (x2,z2), con aperturas (huecos
+  // rectangulares) en la pared. Cada apertura es {xCm, widthCm, yCm,
+  // heightCm} en coords del alzado (xCm desde el inicio de la pared,
+  // yCm desde el suelo).
+  //
+  // Devuelve un array de meshes: 1 segmento por cada hueco entre
+  // aperturas + las aperturas mismas (puerta/ventana) renderizadas
+  // como paneles finos en su zona.
   const dx = x2 - x1;
   const dz = z2 - z1;
   const len = Math.sqrt(dx * dx + dz * dz);
-  if (len < 1) return null;
-  const geom = new THREE.BoxGeometry(len, alturaCm, grosorCm);
-  // Centrar en Y (altura) para que la base toque el suelo.
-  geom.translate(0, alturaCm / 2, 0);
-  // Rotar para que X (largo) apunte a lo largo del segmento.
+  if (len < 1) return [];
   const angle = Math.atan2(dz, dx);
-  geom.rotateY(-angle);
-  // Mover a la posicion final (punto medio del segmento en coords mundo).
   const midX = (x1 + x2) / 2 + widthCm / 2;
   const midZ = (z1 + z2) / 2 + heightCm / 2;
-  geom.translate(midX, 0, midZ);
-  const mesh = new THREE.Mesh(geom, paredMat);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-  return mesh;
+  const meshes = [];
+
+  // Calcular los segmentos solidos de la pared.
+  // Cada apertura genera 2 cortes en la pared: [xCm, xCm+widthCm].
+  // Ordenamos y creamos N+1 segmentos: [0..a1], [a1..a2], ..., [aN..len].
+  const cortes = [];
+  for (const a of apertures) {
+    if (a.xCm > 0 && a.xCm < len) cortes.push(a.xCm);
+    if (a.xCm + a.widthCm > 0 && a.xCm + a.widthCm < len) cortes.push(a.xCm + a.widthCm);
+  }
+  cortes.sort((a, b) => a - b);
+  // Eliminar duplicados.
+  const cortesUnicos = [];
+  for (const c of cortes) {
+    if (cortesUnicos.length === 0 || c - cortesUnicos[cortesUnicos.length - 1] > 0.5) {
+      cortesUnicos.push(c);
+    }
+  }
+  const segmentos = [];
+  let prev = 0;
+  for (const c of cortesUnicos) {
+    if (c - prev > 0.5) segmentos.push([prev, c]);
+    prev = c;
+  }
+  if (len - prev > 0.5) segmentos.push([prev, len]);
+
+  for (const [a, b] of segmentos) {
+    const segLen = b - a;
+    const segCenterLocal = (a + b) / 2 - len / 2; // en coords locales del box
+    const geom = new THREE.BoxGeometry(segLen, alturaCm, grosorCm);
+    geom.translate(0, alturaCm / 2, 0);
+    geom.rotateY(-angle);
+    geom.translate(midX + segCenterLocal * Math.cos(angle), 0, midZ + segCenterLocal * Math.sin(angle));
+    const m = new THREE.Mesh(geom, paredMat);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    meshes.push(m);
+  }
+  return meshes;
 }
 
+// --- 6a) Emparejar alzados con paredes -------------------------------------
+// Calculamos las 4 paredes exteriores del bounding box rectangular del
+// contorno, y buscamos el alzado que coincida con cada una por
+// (data-wall, data-wall-width) y por la longitud real de la pared.
+function wallLength([x1, z1], [x2, z2]) {
+  return Math.sqrt((x2 - x1) ** 2 + (z2 - z1) ** 2);
+}
+// Las paredes exteriores (en orden de generacion): para una planta con
+// contorno mainContour = [p0, p1, ..., pN-1, p0], los lados son
+// (p0,p1), (p1,p2), ..., (pN-1,p0). Para una planta rectangular
+// axis-aligned en coords SVG (xCm, yCm), los 4 lados son:
+//   (0) lado entre p0 y p1: horizontal, y=minY (NORTE) o y=maxY (SUR)
+//   (1) lado entre p1 y p2: vertical, x=maxX (ESTE) o x=minX (OESTE)
+//   (2) lado entre p2 y p3: horizontal
+//   (3) lado entre p3 y p0: vertical
+// Pero como mainContour no garantiza el orden de los puntos, las
+// paredes se identifican por su orientacion: las horizontales (dz=0)
+// son N o S segun su Y; las verticales (dx=0) son E u O segun su X.
+const paredesInfo = []; // Array<{ wall: 'N'|'S'|'E'|'W', seg: [[x1,z1],[x2,z2]], len, apertures }>
 for (const seg of exteriorWalls) {
-  const m = buildWallMesh(seg[0], seg[1]);
-  if (m) exteriorGroup.add(m);
+  const [[x1, z1], [x2, z2]] = seg;
+  const len = wallLength(seg[0], seg[1]);
+  const isHoriz = Math.abs(z2 - z1) < 0.5;
+  let wall = null;
+  if (isHoriz) {
+    // Horizontal: el lado con y mas baja es N (en SVG, y crece hacia abajo,
+    // asi que y=minY es el norte visual, y=maxY es el sur visual).
+    const y = (z1 + z2) / 2;
+    wall = y < (minY + maxY) / 2 ? "N" : "S";
+  } else {
+    const x = (x1 + x2) / 2;
+    wall = x < (minX + maxX) / 2 ? "W" : "E";
+  }
+  // Buscar alzado que coincida con esta pared.
+  let apertures = [];
+  for (const a of alzadosMeta) {
+    const meta = a.meta;
+    if (meta.wall === wall && meta.wallWidthCm != null) {
+      // Coincidencia por wall y wallWidthCm.
+      if (Math.abs(meta.wallWidthCm - len) < 5) {
+        apertures = meta.apertures;
+        break;
+      }
+    } else if (meta.wall === wall && Math.abs(meta.widthCm - len) < 5) {
+      // Fallback: wall coincide y width del viewBox coincide.
+      apertures = meta.apertures;
+      break;
+    }
+  }
+  paredesInfo.push({ wall, seg, len, apertures });
+}
+
+// --- 6b) Construir meshes de pared (con aperturas) -------------------------
+const apertureGroup = new THREE.Group(); // puertas y ventanas (rellenos)
+for (const info of paredesInfo) {
+  const meshes = buildWallMesh(info.seg[0], info.seg[1], info.apertures);
+  for (const m of meshes) exteriorGroup.add(m);
+  // Renderizar las aperturas (puerta/ventana) dentro de los huecos.
+  const [[x1, z1], [x2, z2]] = info.seg;
+  const angle = Math.atan2(z2 - z1, x2 - x1);
+  const len = info.len;
+  const midX = (x1 + x2) / 2 + widthCm / 2;
+  const midZ = (z1 + z2) / 2 + heightCm / 2;
+  for (const a of info.apertures) {
+    // Material segun el tipo.
+    const mat = a.kind === "door"
+      ? new THREE.MeshStandardMaterial({ color: 0xffe8b0, roughness: 0.7, transparent: true, opacity: 0.85 })
+      : new THREE.MeshStandardMaterial({ color: 0xcce4ff, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.5 });
+    // El panel se coloca a xCm del inicio de la pared, centrado.
+    const cx = a.xCm + a.widthCm / 2 - len / 2;
+    const cy = a.yCm + a.heightCm / 2;
+    const geom = new THREE.BoxGeometry(a.widthCm, a.heightCm, grosorCm * 0.4);
+    geom.translate(0, cy, 0);
+    geom.rotateY(-angle);
+    geom.translate(midX + cx * Math.cos(angle), 0, midZ + cx * Math.sin(angle));
+    const m = new THREE.Mesh(geom, mat);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    apertureGroup.add(m);
+  }
+}
+scene.add(apertureGroup);
+
+// --- 6c) Toggle de aperturas (puertas/ventanas) ---------------------------
+const toggleAperturesBtn = document.getElementById("toggle-apertures");
+if (toggleAperturesBtn) {
+  toggleAperturesBtn.addEventListener("click", () => {
+    const isOn = toggleAperturesBtn.classList.toggle("on");
+    apertureGroup.visible = isOn;
+  });
+}
+// Si el proyecto tiene aperturas, lo activamos por defecto.
+if (apertureGroup.children.length === 0) {
+  if (toggleAperturesBtn) {
+    toggleAperturesBtn.style.opacity = "0.4";
+    toggleAperturesBtn.title = "Este proyecto no tiene aperturas";
+    toggleAperturesBtn.disabled = true;
+  }
 }
 for (const seg of interiorWalls) {
-  const m = buildWallMesh(seg[0], seg[1]);
-  if (m) interiorGroup.add(m);
+  const meshes = buildWallMesh(seg[0], seg[1]);
+  for (const m of meshes) interiorGroup.add(m);
 }
 scene.add(exteriorGroup);
 scene.add(interiorGroup);

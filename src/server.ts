@@ -41,6 +41,7 @@ import {
 } from "node:fs";
 import { join, resolve, extname } from "node:path";
 import { parseSvg, contourBounds } from "./svg-to-3d";
+import { parseElevation, type ElevationMeta } from "./svg-elevations";
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
 const HOST = process.env.HOST || "0.0.0.0";
@@ -274,6 +275,37 @@ app.get("/api/projects/:id/planta", (req, res) => {
   }
   res.setHeader("Content-Type", "image/svg+xml");
   res.send(readFileSync(path));
+});
+
+/**
+ * GET /api/projects/:id/alzados-meta — lista los alzados parseados
+ * con sus aperturas (puertas/ventanas). El visor 3D lo consume para
+ * renderizar las aperturas en las paredes correspondientes.
+ */
+app.get("/api/projects/:id/alzados-meta", (req, res) => {
+  const id = req.params.id;
+  if (!/^[a-zA-Z0-9-]+$/.test(id)) {
+    res.status(400).json({ error: "Identificador invalido" });
+    return;
+  }
+  const dir = join(PROJECTS, id, "alzados");
+  if (!existsSync(dir)) {
+    res.json({ alzados: [] });
+    return;
+  }
+  const files: string[] = readdirSync(dir).filter((f: string) => f.endsWith(".svg"));
+  const out: Array<{ name: string; meta: ElevationMeta }> = [];
+  for (const f of files) {
+    const name = f.replace(/\.svg$/, "");
+    try {
+      const meta = parseElevation(readFileSync(join(dir, f), "utf-8"));
+      out.push({ name, meta });
+    } catch {
+      // Alzado malformado: lo saltamos pero seguimos con los demas.
+      out.push({ name, meta: { wall: null, wallWidthCm: null, widthCm: 0, heightCm: 0, apertures: [] } });
+    }
+  }
+  res.json({ alzados: out });
 });
 
 /** GET /api/projects/:id/alzados/:name — SVG raw de un alzado. */
