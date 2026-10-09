@@ -1129,19 +1129,25 @@ function focusOnFace(key) {
   const c = new THREE.Vector3();
   worldBB.getCenter(c);
   const height = worldBB.max.y - worldBB.min.y;
-  const dist = Math.max(height * 1.5, 500);
 
   // Vector a lo largo del muro en el plano XZ.
   const dx = worldBB.max.x - worldBB.min.x;
   const dz = worldBB.max.z - worldBB.min.z;
 
+  // Para Cara A/B: ponemos la camara MUY cerca del muro (pegada a la
+  // superficie) para que el muro a editar ocupe toda la vista y no se
+  // confundan con otros muros en la escena.
   controls.target.set(c.x, c.y, c.z);
 
   if (face === "cara-c") {
     // Vista top-down casi cenital para ver el canto del muro.
+    const dist = Math.max(height * 1.5, 500);
     camera.position.set(c.x + dist * 0.3, c.y + dist * 0.9, c.z + dist * 0.3);
   } else if (face === "cara-a" || face === "cara-b") {
-    // Vista perpendicular al muro, en el lado que toca.
+    // Vista perpendicular al muro, pegada a la superficie.
+    // Usamos una distancia pequena (la mitad del alto del muro) para
+    // evitar atravesar otros elementos de la escena.
+    const dist = height * 0.7;
     let perpX, perpZ;
     if (dx > dz) {
       // Muro paralelo a X (más ancho en X) → perpendicular en Z
@@ -1152,10 +1158,12 @@ function focusOnFace(key) {
       perpX = face === "cara-a" ? 1 : -1;
       perpZ = 0;
     }
+    // Posicionar la camara MUY cerca del muro, ligeramente fuera, mirando
+    // hacia el centro del muro. Asi el muro a editar ocupa toda la vista.
     camera.position.set(
-      c.x + perpX * dist,
+      c.x + perpX * (dist + 30),
       c.y + height * 0.1,
-      c.z + perpZ * dist
+      c.z + perpZ * (dist + 30)
     );
   }
   controls.update();
@@ -1495,15 +1503,6 @@ function openPickerPopup(key, clientX, clientY) {
   // Vincular cambios: cualquier cambio actualiza MP, aplica al mesh, y
   // sincroniza el input del panel lateral (si existe).
   popupBodyEl.querySelectorAll("input[data-k], select[data-k]").forEach((inp) => {
-    // Al hacer focus en un input/select de una cara, movemos la camara
-    // para que el usuario vea esa cara. Asi entiende qué está editando.
-    inp.addEventListener("focus", (ev) => {
-      const k = ev.target.dataset.k;
-      // Solo rotar la camara si la key es de una pared (wall:*).
-      if (k && k.startsWith("wall:")) {
-        focusOnFace(k);
-      }
-    });
     inp.addEventListener("input", (ev) => {
       const k = ev.target.dataset.k;
       const role = ev.target.dataset.role;
@@ -1524,6 +1523,25 @@ function openPickerPopup(key, clientX, clientY) {
   // Vincular los botones de navegación de cámara.
   // (Eliminado: el usuario prefiere la camara libre.)
 
+  // Mini-visor 3D: un cubo con 6 caras que muestra en tiempo real
+  // los colores de cada cara del elemento. Asi el usuario ve
+  // siempre que Cara A es la fachada, Cara B la cara opuesta
+  // (interior de la casa) y Cara C los bordes.
+  const elementFor3D = isSingle ? { id: realKey } : { id: elementBaseKey, kind: "wall" };
+  const popup3dGetter = () => {
+    const mpCur = loadMP();
+    if (isSingle) {
+      const c = mpCur[realKey] || MP_DEFAULTS[realKey] || { color: "#888888" };
+      return { caraA: c.color, caraB: c.color, caraC: c.color };
+    }
+    return {
+      caraA: mpCur[elementBaseKey + ":cara-a"]?.color || "#888888",
+      caraB: mpCur[elementBaseKey + ":cara-b"]?.color || "#888888",
+      caraC: mpCur[elementBaseKey + ":cara-c"]?.color || "#888888",
+    };
+  };
+  setupPopup3DPreview(popup3dGetter);
+
   // Posicionar el popup cerca del click pero dentro de la ventana.
   popupEl.hidden = false;
   pickerOpen = true;
@@ -1541,6 +1559,120 @@ function closePickerPopup() {
   popupEl.hidden = true;
   pickerOpen = false;
   lastSelectedKey = null;
+  // Restaurar opacidad de los muros si los hicimos transparentes
+  for (const [id, meshes] of wallMeshLookup.entries()) {
+    meshes.forEach((m) => {
+      if (Array.isArray(m.material)) {
+        m.material.forEach((mat) => { mat.transparent = false; mat.opacity = 1.0; });
+        mat.needsUpdate = true;
+      }
+    });
+  }
+  // Limpiar el mini-visor 3D (pause + dispose)
+  if (pp3d) {
+    pp3d.dispose();
+    pp3d = null;
+  }
+}
+
+// --- Mini-visor 3D dentro del popup ----------------------------------------
+// Un cubo de 6 caras (no un ExtrudeGeometry) con 6 materiales:
+//   [+X]=Cara B (lateral derecha, fuera del muro)
+//   [-X]=Cara B (lateral izquierda)
+//   [+Y]=Cara C (borde superior)
+//   [-Y]=Cara C (borde inferior)
+//   [+Z]=Cara A (fachada frontal)
+//   [-Z]=Cara A (fachada trasera)
+// El cubo rota lentamente para que se vean TODAS las caras.
+let pp3d = null; // { renderer, scene, camera, mesh, animId }
+
+function setupPopup3DPreview(getter) {
+  const wrapEl = document.getElementById("pp-3d-wrap");
+  if (!wrapEl) return;
+  // Limpiar si ya habia uno
+  if (pp3d) {
+    pp3d.dispose();
+    pp3d = null;
+  }
+  wrapEl.innerHTML = "";
+  const w = wrapEl.clientWidth || 280;
+  const h = wrapEl.clientHeight || 120;
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setSize(w, h);
+  renderer.setPixelRatio(window.devicePixelRatio || 1);
+  wrapEl.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(35, w / h, 0.1, 100);
+  camera.position.set(0, 0, 6);
+  // Cubo con 6 materiales (uno por cara)
+  const cubeGeo = new THREE.BoxGeometry(2, 2, 2);
+  const matDefault = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.7 });
+  const cube = new THREE.Mesh(cubeGeo, [
+    matDefault.clone(), // +X Cara B (lateral derecha)
+    matDefault.clone(), // -X Cara B (lateral izquierda)
+    matDefault.clone(), // +Y Cara C (borde superior)
+    matDefault.clone(), // -Y Cara C (borde inferior)
+    matDefault.clone(), // +Z Cara A (fachada frontal)
+    matDefault.clone(), // -Z Cara A (fachada trasera)
+  ]);
+  scene.add(cube);
+  // Luces
+  scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  dirLight.position.set(2, 3, 4);
+  scene.add(dirLight);
+  // Labels pequeños
+  const lblA = document.createElement("div");
+  lblA.className = "pp-3d-label a";
+  lblA.textContent = "Cara A";
+  const lblB = document.createElement("div");
+  lblB.className = "pp-3d-label b";
+  lblB.textContent = "Cara B";
+  const lblC = document.createElement("div");
+  lblC.className = "pp-3d-label c";
+  lblC.textContent = "Cara C";
+  wrapEl.appendChild(lblA);
+  wrapEl.appendChild(lblB);
+  wrapEl.appendChild(lblC);
+
+  // Animacion: rotar el cubo lentamente
+  let lastT = performance.now();
+  function animate() {
+    const now = performance.now();
+    const dt = (now - lastT) / 1000;
+    lastT = now;
+    cube.rotation.y += dt * 0.5;
+    // Actualizar materiales segun el getter (lee del localStorage)
+    const colors = getter();
+    if (colors) {
+      const mats = cube.material;
+      // Cara A: cara frontal (+Z) y cara trasera (-Z)
+      if (mats[4] && colors.caraA) mats[4].color.set(colors.caraA);
+      if (mats[5] && colors.caraA) mats[5].color.set(colors.caraA);
+      // Cara B: laterales (+X y -X)
+      if (mats[0] && colors.caraB) mats[0].color.set(colors.caraB);
+      if (mats[1] && colors.caraB) mats[1].color.set(colors.caraB);
+      // Cara C: bordes superior (+Y) e inferior (-Y)
+      if (mats[2] && colors.caraC) mats[2].color.set(colors.caraC);
+      if (mats[3] && colors.caraC) mats[3].color.set(colors.caraC);
+    }
+    renderer.render(scene, camera);
+    if (pp3d) pp3d.animId = requestAnimationFrame(animate);
+  }
+  pp3d = { renderer, scene, camera, mesh: cube, animId: null, dispose() {
+    cancelAnimationFrame(this.animId);
+    this.renderer.dispose();
+    if (this.mesh && this.mesh.geometry) this.mesh.geometry.dispose();
+    if (Array.isArray(this.mesh && this.mesh.material)) {
+      this.mesh.material.forEach((m) => m.dispose());
+    }
+    if (renderer.domElement && renderer.domElement.parentNode) {
+      renderer.domElement.parentNode.removeChild(renderer.domElement);
+    }
+    const labels = wrapEl.querySelectorAll(".pp-3d-label");
+    labels.forEach((l) => l.remove());
+  } };
+  animate();
 }
 
 // Click en el canvas: lanzar raycaster y, si hay hit, abrir el popup.
