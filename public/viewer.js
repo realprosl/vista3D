@@ -1108,6 +1108,85 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(widthCm / 2, alturaCm / 2, heightCm / 2);
 controls.update();
 
+// Mueve la camara para enfocar la cara seleccionada de un elemento.
+// key = "wall:<id>:cara-a" | ":cara-b" | ":cara-c"
+// Para Cara A/B: orbita para que la camara quede perpendicular a la pared.
+// Para Cara C: vista cenital (top-down) para ver el canto del muro.
+function focusOnFace(key) {
+  const parts = key.split(":");
+  if (parts.length !== 3) return;
+  const [tipo, id, face] = parts;
+  if (tipo !== "wall") {
+    // Para suelo, aperturas, etc.: orbita manteniendo la camara actual
+    // (no es necesario mover, ya se ven bien desde el angulo normal).
+    return;
+  }
+  // Obtener la geometría del mesh de la pared
+  const meshes = wallMeshLookup.get(id + "_meshes") || [];
+  if (meshes.length === 0) return;
+  const mesh = meshes[0];
+  // Posición del centro de la pared en el mundo.
+  const center = new THREE.Vector3();
+  mesh.getWorldPosition(center);
+  // Bounding box para tener las dimensiones reales en el mundo.
+  mesh.geometry.computeBoundingBox();
+  const bb = mesh.geometry.boundingBox;
+  const height = (bb.max.y - bb.min.y); // alto del muro
+  // Distancia de la camara: 1.5x el alto del muro.
+  const dist = Math.max(height * 1.2, 400);
+  // Posición objetivo: centrar la cámara en el centro del muro.
+  controls.target.set(center.x, center.y + height / 2, center.z);
+  if (face === "cara-c") {
+    // Cara C = bordes superior/inferior. Vista top-down casi cenital.
+    // Colocamos la camara encima y un poco al lado.
+    camera.position.set(center.x + dist * 0.4, center.y + height + dist, center.z + dist * 0.3);
+  } else if (face === "cara-a" || face === "cara-b") {
+    // Cara A/B: orientamos la camara perpendicular al muro.
+    // Calculamos la dirección perpendicular al muro.
+    // El muro se construye con un Shape y luego se rota; el slot 0 está
+    // en la dirección de la normal del Shape. Para obtener la dirección
+    // perpendicular en el mundo, tomamos el vector (mesh.position - bbox).
+    // Truco: el vector entre (max.x,max.z) y (min.x,min.z) nos da la
+    // dirección a lo largo del muro. La perpendicular es la rotación 90°.
+    // Usamos el método del bounding box en coords locales (despues de
+    // haber aplicado la rotacion del mesh al mundo).
+    const worldBB = new THREE.Box3().setFromObject(mesh);
+    const c = new THREE.Vector3();
+    worldBB.getCenter(c);
+    // Vector a lo largo del muro en el plano XZ.
+    const dx = worldBB.max.x - worldBB.min.x;
+    const dz = worldBB.max.z - worldBB.min.z;
+    // Dirección perpendicular (en el plano XZ): rotamos 90° el vector
+    // largo. Si la pared es paralela a X, la perpendicular es Z; si es
+    // paralela a Z, la perpendicular es X.
+    let perpX, perpZ;
+    if (dx > dz) {
+      // Muro más largo en X → perpendicular en Z
+      perpX = 0;
+      perpZ = face === "cara-a" ? 1 : -1;
+    } else {
+      // Muro más largo en Z → perpendicular en X
+      perpX = face === "cara-a" ? 1 : -1;
+      perpZ = 0;
+    }
+    camera.position.set(
+      c.x + perpX * dist,
+      c.y + height * 0.3,
+      c.z + perpZ * dist
+    );
+  }
+  controls.update();
+}
+
+// Resaltar visualmente el botón de cara activo.
+function setActiveFaceButton(face) {
+  const buttons = document.querySelectorAll("#pp-camera-row .pp-cam-btn");
+  buttons.forEach((btn) => {
+    if (btn.dataset.face === face) btn.classList.add("active");
+    else btn.classList.remove("active");
+  });
+}
+
 // En el render loop.
 function animate() {
   requestAnimationFrame(animate);
@@ -1220,15 +1299,15 @@ function applyMPToMesh(key, cfg) {
         mesh.material = [paredExtMat.clone(), paredIntMat.clone(), paredExtMat.clone()];
       }
       if (face === "cara-a") {
-        // Cara A (slot 0) y bordes C (slot 2) comparten la misma textura
-        // por defecto (visualmente son la "cara externa" del muro).
+        // Cara A = slot 0 (la cara frontal, lado positivo de la normal).
+        // NO se aplica a slot 2: la Cara C (bordes) es independiente
+        // y se edita con su propio picker.
         applyMatFromCfg(mesh.material[0], cfg, { roughness: 0.9 });
-        applyMatFromCfg(mesh.material[2], cfg, { roughness: 0.9 });
       } else if (face === "cara-b") {
-        // Cara B (slot 1): la cara opuesta a la normal.
+        // Cara B = slot 1 (la cara opuesta a la normal).
         applyMatFromCfg(mesh.material[1], cfg, { roughness: 0.9 });
       } else if (face === "cara-c") {
-        // Perfil lateral (slot 2): el borde del muro, visible desde arriba.
+        // Cara C = slot 2 (perfil lateral: bordes superior/inferior y de huecos).
         applyMatFromCfg(mesh.material[2], cfg, { roughness: 0.9 });
       }
     }
@@ -1412,6 +1491,26 @@ function openPickerPopup(key, clientX, clientY) {
   popupTitleEl.textContent = labelForKey(realKey);
   popupSubEl.textContent = isSingle ? "Atributos" : `Atributos (Cara A / Cara B / Cara C)`;
 
+  // Mostrar la fila de navegacion de camara solo para paredes
+  // (los suelos/aperturas se ven bien desde el angulo normal).
+  const camRowEl = document.getElementById("pp-camera-row");
+  if (camRowEl) {
+    if (tipo === "wall") {
+      camRowEl.hidden = false;
+      // Determinar que cara fue clickada originalmente (para resaltarla).
+      // Si el mesh tenia varias keys, usamos la primera que sea cara-a/b/c
+      // de la misma pared.
+      let initialFace = face; // puede ser undefined
+      if (!initialFace) {
+        // mesh sin cara-* (e.g. el suelo o hueco): usamos cara-a por defecto
+        initialFace = "cara-a";
+      }
+      setActiveFaceButton(initialFace);
+    } else {
+      camRowEl.hidden = true;
+    }
+  }
+
   // Construir el body: 1 fila por cara (o 1 fila si es suelo/hueco).
   const mpNow = loadMP();
   popupBodyEl.innerHTML = "";
@@ -1456,6 +1555,18 @@ function openPickerPopup(key, clientX, clientY) {
       if (side && role === "color") side.value = ev.target.value;
       const sideTex = document.querySelector(`.mp-tex[data-pid="${k}"]`);
       if (sideTex && role === "texture") sideTex.value = ev.target.value;
+    });
+  });
+
+  // Vincular los botones de navegación de cámara.
+  // Cada botón enfoca la cara correspondiente de la pared.
+  document.querySelectorAll("#pp-camera-row .pp-cam-btn").forEach((btn) => {
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      const f = btn.dataset.face;
+      const k = `${elementBaseKey}:${f}`;
+      focusOnFace(k);
+      setActiveFaceButton(f);
     });
   });
 
@@ -1730,4 +1841,24 @@ if (params.get("seed") && suelo && suelo.material) {
     const m2 = Array.isArray(suelo.material) ? suelo.material[0] : suelo.material;
     console.log("[post-seed+1s] suelo mat[0].map:", m2 && m2.map ? "YES" : "NO", "image:", m2 && m2.map && m2.map.image && m2.map.image.width);
   }, 1000);
+}
+
+// Test: ?threeColors=1 pone Cara A=rojo, B=azul, C=verde en la primera pared.
+// Util para depurar: se ve la cara A y B segun el angulo de camara.
+// La cara C (bordes) solo se ve desde vista top-down. Usa los botones
+// "Ver Cara X" del popup para mover la camara al angulo correcto.
+if (params.get("threeColors")) {
+  setTimeout(() => {
+    const firstWall = wallList[0];
+    if (firstWall) {
+      const mpCur = loadMP();
+      mpCur[`wall:${firstWall.id}:cara-a`] = { color: "#ff0000", texture: "liso" };
+      mpCur[`wall:${firstWall.id}:cara-b`] = { color: "#0000ff", texture: "liso" };
+      mpCur[`wall:${firstWall.id}:cara-c`] = { color: "#00ff00", texture: "liso" };
+      saveMP(mpCur);
+      applyMPToMesh(`wall:${firstWall.id}:cara-a`, mpCur[`wall:${firstWall.id}:cara-a`]);
+      applyMPToMesh(`wall:${firstWall.id}:cara-b`, mpCur[`wall:${firstWall.id}:cara-b`]);
+      applyMPToMesh(`wall:${firstWall.id}:cara-c`, mpCur[`wall:${firstWall.id}:cara-c`]);
+    }
+  }, 1500);
 }
