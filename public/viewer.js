@@ -1156,6 +1156,20 @@ for (const e of elementList) {
 }
 const MP_KEYS = Object.keys(MP_DEFAULTS);
 
+// --- 6b.5) Aplicar MP a los meshes al inicio --------------------------------
+// Hasta ahora los meshes se crearon con los colores por defecto
+// (paredExtMat/paredIntMat). Hay que aplicar el MP para que cada pared
+// tenga los colores correctos del SVG (data-color-cara-a/b/c).
+{
+  const mpInit = loadMP();
+  for (const key of MP_KEYS) {
+    if (mpInit[key]) applyMPToMesh(key, mpInit[key]);
+  }
+  // Suelo y suelo-debajo: usar la key directa
+  if (mpInit["suelo"]) applyMPToMesh("suelo", mpInit["suelo"]);
+  if (mpInit["suelo-debajo"]) applyMPToMesh("suelo-debajo", mpInit["suelo-debajo"]);
+}
+
 function loadMP() {
   try {
     const stored = localStorage.getItem(MP_STORAGE);
