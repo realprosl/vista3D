@@ -196,54 +196,77 @@ scene.add(suelo);
 //   Largo = distancia entre (p1, p2) en cm.
 //   Alto  = alturaCm.
 //   Ancho = grosorCm (perpendicular al segmento).
+// Las paredes exteriores (los 4 lados del contorno) se meten en un Group
+// aparte para poder ocultarlas con el toggle del visor.
+const exteriorGroup = new THREE.Group();
+const interiorGroup = new THREE.Group();
 const paredMat = new THREE.MeshStandardMaterial({
   color: 0xeee2cc,
   roughness: 0.9,
 });
 
 // Paredes exteriores: cada lado del contorno.
-const walls = [];
+const exteriorWalls = [];
 for (let i = 0; i < mainLocal.length - 1; i++) {
-  walls.push([mainLocal[i], mainLocal[i + 1]]);
+  exteriorWalls.push([mainLocal[i], mainLocal[i + 1]]);
 }
 // Quitar el ultimo si es duplicado del primero (cierre).
 if (
-  walls.length > 1 &&
-  walls[walls.length - 1][0][0] === walls[0][0][0] &&
-  walls[walls.length - 1][0][1] === walls[0][0][1]
+  exteriorWalls.length > 1 &&
+  exteriorWalls[exteriorWalls.length - 1][0][0] === exteriorWalls[0][0][0] &&
+  exteriorWalls[exteriorWalls.length - 1][0][1] === exteriorWalls[0][0][1]
 ) {
-  walls.pop();
+  exteriorWalls.pop();
 }
 
 // Paredes interiores.
-for (const seg of interiorSegments) {
+const interiorWalls = interiorSegments.map(seg => {
   const a = translate(seg[0]);
   const b = translate(seg[1]);
-  walls.push([a, b]);
-}
+  return [a, b];
+});
 
-for (const [[x1, z1], [x2, z2]] of walls) {
+function buildWallMesh([x1, z1], [x2, z2]) {
   const dx = x2 - x1;
   const dz = z2 - z1;
   const len = Math.sqrt(dx * dx + dz * dz);
-  if (len < 1) continue; // ignorar segmentos degenerados
-
-  // Crear un BoxGeometry centrado en el origen, con X = largo, Y = alto, Z = grosor.
+  if (len < 1) return null;
   const geom = new THREE.BoxGeometry(len, alturaCm, grosorCm);
-  // El box esta centrado. Lo movemos al punto medio del segmento.
-  const midX = (x1 + x2) / 2 + widthCm / 2;
-  const midZ = (z1 + z2) / 2 + heightCm / 2;
-  // Y (altura): el box esta centrado en Y=0, queremos que la base este en Y=0.
+  // Centrar en Y (altura) para que la base toque el suelo.
   geom.translate(0, alturaCm / 2, 0);
   // Rotar para que X (largo) apunte a lo largo del segmento.
   const angle = Math.atan2(dz, dx);
   geom.rotateY(-angle);
-  // Mover a la posicion final.
+  // Mover a la posicion final (punto medio del segmento en coords mundo).
+  const midX = (x1 + x2) / 2 + widthCm / 2;
+  const midZ = (z1 + z2) / 2 + heightCm / 2;
   geom.translate(midX, 0, midZ);
   const mesh = new THREE.Mesh(geom, paredMat);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
-  scene.add(mesh);
+  return mesh;
+}
+
+for (const seg of exteriorWalls) {
+  const m = buildWallMesh(seg[0], seg[1]);
+  if (m) exteriorGroup.add(m);
+}
+for (const seg of interiorWalls) {
+  const m = buildWallMesh(seg[0], seg[1]);
+  if (m) interiorGroup.add(m);
+}
+scene.add(exteriorGroup);
+scene.add(interiorGroup);
+
+// --- 6b) Toggle de paredes exteriores --------------------------------------
+// El boton #toggle-walls en view.html alterna la visibilidad del grupo
+// exterior. Las paredes interiores siempre quedan visibles.
+const toggleWallsBtn = document.getElementById("toggle-walls");
+if (toggleWallsBtn) {
+  toggleWallsBtn.addEventListener("click", () => {
+    const isOn = toggleWallsBtn.classList.toggle("on");
+    exteriorGroup.visible = isOn;
+  });
 }
 
 // --- 7) Controles + render loop -------------------------------------------
