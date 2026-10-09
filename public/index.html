@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>vista3D - Subir plano SVG</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      max-width: 640px;
+      margin: 60px auto;
+      padding: 0 20px;
+      color: #222;
+    }
+    h1 { font-size: 28px; margin-bottom: 8px; }
+    p.lead { color: #666; margin-top: 0; }
+    .card {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 24px;
+      margin: 20px 0;
+      background: #fafafa;
+    }
+    label { display: block; font-weight: 600; margin-bottom: 6px; }
+    input[type="file"] { margin: 8px 0 16px; }
+    input[type="number"] {
+      width: 100px; padding: 6px; border: 1px solid #ccc; border-radius: 4px;
+    }
+    button {
+      background: #2a7ae2; color: white; border: 0;
+      padding: 10px 20px; border-radius: 4px; font-size: 16px; cursor: pointer;
+    }
+    button:disabled { background: #999; cursor: not-allowed; }
+    button:hover:not(:disabled) { background: #1d5dbf; }
+    #status { margin-top: 16px; }
+    .success { color: #2a7; font-weight: 600; }
+    .error { color: #c33; font-weight: 600; }
+    .link {
+      display: inline-block; margin-top: 8px; padding: 8px 12px;
+      background: #eef; border-radius: 4px; text-decoration: none; color: #27c;
+    }
+    .small { font-size: 13px; color: #888; }
+  </style>
+</head>
+<body>
+  <h1>vista3D</h1>
+  <p class="lead">Sube un plano en SVG y obtén una vista 3D compartible.</p>
+
+  <div class="card">
+    <form id="form">
+      <label for="svg">Plano SVG</label>
+      <input type="file" id="svg" name="svg" accept=".svg,image/svg+xml" required>
+      <p class="small">Acepta <code>&lt;path d="M L Z"&gt;</code>, <code>&lt;polygon&gt;</code> o <code>&lt;rect&gt;</code>.</p>
+
+      <label for="altura">Altura de extrusión (cm)</label>
+      <input type="number" id="altura" name="alturaCm" value="250" min="10" max="9999" step="10">
+      <p class="small">250 = 2.5 metros (típico para una habitación).</p>
+
+      <button type="submit" id="btn">Generar vista 3D</button>
+    </form>
+    <div id="status"></div>
+  </div>
+
+  <p class="small">
+    Tip: ejecuta <code>npm run sample</code> para regenerar el SVG de prueba en
+    <code>public/samples/sample-room.svg</code>, o descárgalo directamente:
+    <a href="/public/samples/sample-room.svg" download>sample-room.svg</a>.
+  </p>
+
+  <script>
+    const form = document.getElementById("form");
+    const status = document.getElementById("status");
+    const btn = document.getElementById("btn");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      status.innerHTML = "";
+      btn.disabled = true;
+      btn.textContent = "Subiendo...";
+
+      const fd = new FormData(form);
+      try {
+        const res = await fetch("/upload", { method: "POST", body: fd });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error desconocido");
+        status.innerHTML = `
+          <p class="success">✓ Vista 3D generada</p>
+          <p>Identificador: <code>${data.id}</code></p>
+          <p>Dimensiones del plano: <strong>${data.bounds.widthCm}</strong> x <strong>${data.bounds.heightCm}</strong> cm
+            (altura extruida: <strong>${data.heightCm}</strong> cm)</p>
+          <a class="link" href="${data.viewUrl}">Abrir vista 3D →</a>
+          <p class="small" style="margin-top: 12px;">URL compartible: <code>${location.origin}${data.viewUrl}</code></p>
+        `;
+      } catch (err) {
+        status.innerHTML = `<p class="error">✗ ${err.message}</p>`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Generar vista 3D";
+      }
+    });
+  </script>
+</body>
+</html>

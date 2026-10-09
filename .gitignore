@@ -1,0 +1,16 @@
+# Dependencias
+node_modules/
+
+# Build artifacts (se regeneran con `npm run build`)
+dist/
+dist-scripts/
+
+# Uploads de usuarios (no se commitean; se regeneran al usar la app)
+uploads/*
+!uploads/.gitkeep
+
+# Misc
+*.log
+.DS_Store
+.env
+.env.local
