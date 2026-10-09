@@ -1272,19 +1272,25 @@ function makeRow(key, label, color, texture) {
 }
 if (wallsListEl) {
   for (const e of elementList) {
-    const block = document.createElement("div");
-    block.className = "mp-element-block";
-    block.style.marginTop = "10px";
+    const details = document.createElement("details");
+    details.className = "mp-element-block";
+    details.style.marginTop = "6px";
+    // Cada elemento es colapsable individualmente.
     const sub = e.tipo === "wall"
-      ? `<div class="mp-name" style="font-size:10px;color:#7a8190;margin-bottom:2px;">${e.wallLabel || ""}</div>`
-      : `<div class="mp-name" style="font-size:10px;color:#7a8190;margin-bottom:2px;">${e.wallLabel || ""}</div>`;
-    block.innerHTML = `
-      <div class="mp-name" style="font-size:11px;color:#5a6171;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;font-weight:700;">${e.label}</div>
-      ${sub}
-      ${makeRow(e.tipo + ":" + e.id + ":exterior", "Exterior", e.exterior.color, e.exterior.texture)}
-      ${makeRow(e.tipo + ":" + e.id + ":interior", "Interior", e.interior.color, e.interior.texture)}
-      ${makeRow(e.tipo + ":" + e.id + ":extrusion", "Extrusión", e.extrusion.color, e.extrusion.texture)}`;
-    wallsListEl.appendChild(block);
+      ? `<div class="mp-name" style="font-size:10px;color:#7a8190;margin-bottom:4px;">${e.wallLabel || ""}</div>`
+      : `<div class="mp-name" style="font-size:10px;color:#7a8190;margin-bottom:4px;">${e.wallLabel || ""}</div>`;
+    details.innerHTML = `
+      <summary class="mp-element-summary">
+        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        <span class="mp-element-label">${e.label}</span>
+      </summary>
+      <div class="mp-element-body">
+        ${sub}
+        ${makeRow(e.tipo + ":" + e.id + ":exterior", "Exterior", e.exterior.color, e.exterior.texture)}
+        ${makeRow(e.tipo + ":" + e.id + ":interior", "Interior", e.interior.color, e.interior.texture)}
+        ${makeRow(e.tipo + ":" + e.id + ":extrusion", "Extrusión", e.extrusion.color, e.extrusion.texture)}
+      </div>`;
+    wallsListEl.appendChild(details);
   }
 }
 
