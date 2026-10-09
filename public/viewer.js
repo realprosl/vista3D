@@ -563,11 +563,21 @@ if (elementsData && elementsData.paredes && elementsData.paredes.length > 0) {
       }
       // Convertir el contour (5 puntos tipicamente) en xCm/widthCm.
       // Aplicar translate para que las aperturas se alineen con la
-      // pared ya centrada.
+      // pared ya centrada. El xCm que espera buildWallMesh es la
+      // DISTANCIA desde el inicio de la pared, no la X absoluta.
       const [tx0, tz0] = translate([a.contour[0].x, a.contour[0].y]);
       const [tx1, tz1] = translate([a.contour[1].x, a.contour[1].y]);
       const minX = Math.min(tx0, tx1);
       const maxX = Math.max(tx0, tx1);
+      // Distancia desde el inicio de la pared (x1 del seg, o z1 si vertical).
+      const isHorizWall = Math.abs(seg[0][1] - seg[1][1]) < 0.5;
+      const segStart = isHorizWall ? seg[0][0] : seg[0][1];
+      let xCmFromStart = minX - segStart;
+      if (xCmFromStart < 0) {
+        const segEnd = isHorizWall ? seg[1][0] : seg[1][1];
+        xCmFromStart = minX - segEnd;
+        if (xCmFromStart < 0) xCmFromStart = 0;
+      }
       // Para una pared horizontal (la fachada sur de Mara), la apertura
       // ocupa una porcion del eje X, y esta justo en y=maxY. La
       // altura de la apertura en el alzado esta en yCm (medido desde
@@ -588,7 +598,7 @@ if (elementsData && elementsData.paredes && elementsData.paredes.length > 0) {
       const kind = a.group === "door" ? "door" : a.group === "window" ? "window" : "hole";
       apertures.push({
         kind,
-        xCm: minX,
+        xCm: xCmFromStart,
         widthCm: maxX - minX,
         yCm,
         heightCm,
@@ -599,17 +609,38 @@ if (elementsData && elementsData.paredes && elementsData.paredes.length > 0) {
     const alzado = elementsData.alzados && elementsData.alzados[wallId];
     if (alzado) {
       // Para convertir xCm de SVG a mundo, usamos la relacion
-      // xCm_mundo = (xCm_svg / viewBoxWidth) * lenDeLaPared.
-      // viewBoxWidth viene del alzado; si no esta, usamos wallWidthCm.
+      // xCm_mundo = (xCm_svg / viewBoxWidth) * wallWidthCmReal.
       const vbWidth = (alzado.viewBox && alzado.viewBox.width) || alzado.wallWidthCm || len;
-      const scale = (alzado.wallWidthCm || len) / vbWidth;
+      const wallWidthReal = alzado.wallWidthCm || len;
+      const scale = wallWidthReal / vbWidth;
+      // El alzado empieza en x_svg=0 (izquierda) y termina en x_svg=vbWidth (derecha).
+      // En la pared renderizada, el "inicio" es x1 (o z1 si es vertical).
+      // El xCm que espera buildWallMesh es la DISTANCIA desde el inicio
+      // de la pared hasta el inicio de la apertura, medida a lo largo
+      // de la pared.
+      const isHoriz = Math.abs(seg[0][1] - seg[1][1]) < 0.5;
+      const segStart = isHoriz ? seg[0][0] : seg[0][1];
       for (const a of (alzado.apertures || [])) {
         // Si ya esta en apertures (por estar tambien en la planta), no duplicar.
         if (apertures.find(x => x.id === a.id)) continue;
         const kind = a.group === "door" ? "door" : a.group === "window" ? "window" : "hole";
+        // Posicion X de la apertura en coords del mundo.
+        const xMundo = a.xCm * scale;
+        // Distancia desde el inicio de la pared.
+        // Si segStart = -500 y xMundo = 250, entonces dist = 250 - (-500) = 750.
+        // Si segStart = 500 y xMundo = 250, entonces dist = 250 - 500 = -250
+        //   (la apertura esta ANTES del inicio, lo cual no tiene sentido;
+        //    en ese caso, usar la distancia desde el final).
+        let xCmFromStart = xMundo - segStart;
+        // Si es negativo, la pared va al reves: usar el final como inicio.
+        if (xCmFromStart < 0) {
+          const segEnd = isHoriz ? seg[1][0] : seg[1][1];
+          xCmFromStart = xMundo - segEnd;
+          if (xCmFromStart < 0) xCmFromStart = 0; // clamp
+        }
         apertures.push({
           kind,
-          xCm: a.xCm * scale,
+          xCm: xCmFromStart,
           widthCm: a.widthCm * scale,
           yCm: a.yCm,
           heightCm: a.heightCm,
