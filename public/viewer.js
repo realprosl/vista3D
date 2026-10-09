@@ -183,7 +183,50 @@ const maxDim = Math.max(widthCm, heightCm, alturaCm);
 camera.position.set(maxDim * 1.4, maxDim * 1.0, maxDim * 1.4);
 camera.lookAt(widthCm / 2, alturaCm / 2, heightCm / 2);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+// Intentar crear el WebGLRenderer con fallbacks. En algunos navegadores
+// (Safari iOS con modo low-power, navegadores sin GPU) el primer intento
+// falla. Vamos probando con menos features hasta que funcione.
+function createRenderer() {
+  const attempts = [
+    { antialias: true, powerPreference: "high-performance" },
+    { antialias: true },
+    { antialias: false },
+    {}, // ultimo intento, sin opciones
+  ];
+  for (const opts of attempts) {
+    try {
+      const r = new THREE.WebGLRenderer(opts);
+      // Comprobar que el contexto es real (no solo el objeto).
+      const ctx = r.getContext();
+      if (ctx && ctx instanceof WebGLRenderingContext || ctx instanceof WebGL2RenderingContext) {
+        return r;
+      }
+      // Si el contexto no es WebGL, descartar.
+      const lose = r.getContext().getExtension("WEBGL_lose_context");
+      if (lose) lose.loseContext();
+    } catch (e) {
+      // Continuar con el siguiente intento.
+    }
+  }
+  return null;
+}
+
+let renderer = createRenderer();
+if (!renderer) {
+  // No se pudo crear WebGL. Mostramos mensaje visible.
+  const errorEl = document.getElementById("error");
+  const errMsg = document.getElementById("err-msg");
+  if (errorEl) errorEl.style.display = "block";
+  if (errMsg) {
+    errMsg.innerHTML = "Tu navegador no soporta WebGL o esta deshabilitado.<br><br>" +
+      "Prueba a:<br>" +
+      "- Abrir esta misma URL en Chrome (PC o movil).<br>" +
+      "- Activar la aceleracion por hardware en ajustes del navegador.<br>" +
+      "- Cerrar otras pestañas para liberar memoria.<br>" +
+      "- En iPhone: Ajustes > Safari > Avanzado > asegurate de que WebGL esta activo.";
+  }
+  throw new Error("WebGL no disponible");
+}
 renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
@@ -235,6 +278,11 @@ const sueloGeom = new THREE.ExtrudeGeometry(sueloShape, {
   bevelEnabled: false,
 });
 sueloGeom.rotateX(-Math.PI / 2);
+// sueloMat / paredMat / cristalMat se declaran con "let" aqui para evitar
+// el ReferenceError de "temporal dead zone" cuando esta seccion del codigo
+// se ejecuta antes que la seccion 5b donde se asignan los materiales.
+// El material se asigna mas abajo, antes de que el render loop arranque.
+let sueloMat, paredMat, cristalMat;
 const suelo = new THREE.Mesh(sueloGeom, sueloMat);
 suelo.position.set(widthCm / 2, 0, heightCm / 2);
 suelo.castShadow = true;
@@ -302,9 +350,11 @@ function makeMaterial(cfg) {
 }
 
 const matCfg = readMaterialConfig();
-const sueloMat = makeMaterial(matCfg.suelo);
-const paredMat = makeMaterial(matCfg.pared);
-const cristalMat = makeMaterial(matCfg.cristal);
+// sueloMat, paredMat, cristalMat se reasignan aqui (fueron declarados
+// con "let" antes de la creacion del suelo para evitar TDZ).
+sueloMat = makeMaterial(matCfg.suelo);
+paredMat = makeMaterial(matCfg.pared);
+cristalMat = makeMaterial(matCfg.cristal);
 
 // Paredes exteriores: cada lado del contorno.
 const exteriorWalls = [];
@@ -454,6 +504,8 @@ for (const seg of exteriorWalls) {
 // lado. Para las ventanas (cristal semitransparente) anadimos ademas un
 // panel fino en el hueco para que se vea el color del cristal. Las
 // puertas no llevan panel: el hueco se ve vacio.
+const exteriorGroup = new THREE.Group(); // paredes exteriores (toggle)
+const interiorGroup = new THREE.Group(); // paredes interiores
 const apertureGroup = new THREE.Group(); // solo los cristales de las ventanas
 for (const info of paredesInfo) {
   const meshes = buildWallMesh(info.seg[0], info.seg[1], info.apertures);
