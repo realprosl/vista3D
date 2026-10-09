@@ -249,6 +249,44 @@
     footer { padding: 32px 0 24px; text-align: center; color: var(--fg-subtle); font-size: 12px; }
     .text-subtle { color: var(--fg-subtle); font-size: 12px; }
 
+    .materials { display: flex; flex-direction: column; gap: 12px; }
+    .material-row {
+      display: flex; align-items: center; gap: 14px;
+      padding: 12px 14px; background: var(--bg-elev-2);
+      border: 1px solid var(--border); border-radius: var(--radius-md);
+    }
+    .material-swatch {
+      width: 44px; height: 44px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border-strong); flex-shrink: 0;
+      background-color: #c4a988;
+      background-size: 24px 24px;
+      background-image:
+        linear-gradient(45deg, rgba(0,0,0,0.06) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.06) 75%),
+        linear-gradient(45deg, rgba(0,0,0,0.06) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.06) 75%);
+      background-position: 0 0, 12px 12px;
+    }
+    .material-info { flex: 1; min-width: 0; }
+    .material-name { font-size: 14px; font-weight: 600; color: var(--fg); margin-bottom: 6px; }
+    .material-controls { display: flex; gap: 10px; flex-wrap: wrap; }
+    .material-controls label {
+      display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 100px;
+    }
+    .material-controls label > span {
+      font-size: 11px; font-weight: 600; color: var(--fg-subtle);
+      text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .ctrl-color input[type=color] {
+      width: 100%; height: 32px; padding: 0; border: 1px solid var(--border);
+      border-radius: var(--radius-sm); cursor: pointer; background: transparent;
+    }
+    .ctrl-texture select {
+      width: 100%; height: 32px; padding: 0 8px; font: inherit; font-size: 13px;
+      color: var(--fg); background: var(--bg-elev);
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      cursor: pointer;
+    }
+    .ctrl-texture select:focus { outline: none; border-color: var(--primary); }
+
     @media (max-width: 720px) {
       .container { padding: 0 16px; }
       .hero { padding: 40px 0 24px; }
@@ -405,6 +443,102 @@
         <div id="projects">
           <div class="projects-empty">Cargando...</div>
         </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="9"/>
+              <path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4"/>
+            </svg>
+          </div>
+          <div>
+            <h2 class="card-title">Personalizar materiales</h2>
+            <p class="card-subtitle">Color y textura de cada capa (se aplica a todos los proyectos)</p>
+          </div>
+        </div>
+
+        <div class="materials">
+          <div class="material-row" data-key="suelo">
+            <div class="material-swatch" id="swatch-suelo" aria-hidden="true"></div>
+            <div class="material-info">
+              <div class="material-name">Suelo</div>
+              <div class="material-controls">
+                <label class="ctrl-color">
+                  <span>Color</span>
+                  <input type="color" id="suelo-color" value="#c4a988">
+                </label>
+                <label class="ctrl-texture">
+                  <span>Textura</span>
+                  <select id="suelo-texture">
+                    <option value="liso">Liso</option>
+                    <option value="madera">Madera</option>
+                    <option value="baldosa">Baldosa</option>
+                    <option value="ladrillo">Ladrillo</option>
+                    <option value="marmol">Mármol</option>
+                    <option value="piedra">Piedra</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="material-row" data-key="pared">
+            <div class="material-swatch" id="swatch-pared" aria-hidden="true"></div>
+            <div class="material-info">
+              <div class="material-name">Paredes</div>
+              <div class="material-controls">
+                <label class="ctrl-color">
+                  <span>Color</span>
+                  <input type="color" id="pared-color" value="#eee2cc">
+                </label>
+                <label class="ctrl-texture">
+                  <span>Textura</span>
+                  <select id="pared-texture">
+                    <option value="liso">Liso</option>
+                    <option value="madera">Madera</option>
+                    <option value="baldosa">Baldosa</option>
+                    <option value="ladrillo">Ladrillo</option>
+                    <option value="marmol">Mármol</option>
+                    <option value="piedra">Piedra</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="material-row" data-key="cristal">
+            <div class="material-swatch" id="swatch-cristal" aria-hidden="true"></div>
+            <div class="material-info">
+              <div class="material-name">Cristal ventanas</div>
+              <div class="material-controls">
+                <label class="ctrl-color">
+                  <span>Color</span>
+                  <input type="color" id="cristal-color" value="#b8d8f0">
+                </label>
+                <label class="ctrl-texture">
+                  <span>Textura</span>
+                  <select id="cristal-texture">
+                    <option value="liso">Liso</option>
+                    <option value="madera">Madera</option>
+                    <option value="baldosa">Baldosa</option>
+                    <option value="ladrillo">Ladrillo</option>
+                    <option value="marmol">Mármol</option>
+                    <option value="piedra">Piedra</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <button type="button" id="reset-materials" class="btn btn-secondary btn-block">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 1 0 3-6.7L3 8"/>
+            <path d="M3 3v5h5"/>
+          </svg>
+          <span>Restablecer valores por defecto</span>
+        </button>
       </div>
 
       <div class="tip">
@@ -662,6 +796,75 @@
       }[c]));
     }
     refreshProjects();
+
+    // MATERIALES: color + textura por capa (suelo, pared, cristal).
+    // Persistimos en localStorage con la misma clave que viewer.js.
+    const MAT_STORAGE = "vista3d-materials";
+    const MAT_DEFAULTS = {
+      suelo:   { color: "#c4a988", texture: "liso" },
+      pared:   { color: "#eee2cc", texture: "liso" },
+      cristal: { color: "#b8d8f0", texture: "liso" },
+    };
+    const TEXTURE_BG = {
+      liso:     "transparent",
+      madera:   "repeating-linear-gradient(90deg, #8a6a48 0, #b88a5e 4px, #8a6a48 8px)",
+      baldosa:  "repeating-linear-gradient(0deg, #888 0 2px, transparent 2px 32px), repeating-linear-gradient(90deg, #888 0 2px, transparent 2px 32px)",
+      ladrillo: "repeating-linear-gradient(0deg, #8a3030 0 12px, #5a2020 12px 14px, #8a3030 14px 26px, #5a2020 26px 28px)",
+      marmol:   "radial-gradient(circle, #e8e8e8, #c0c0c0 60%, #e8e8e8)",
+      piedra:   "radial-gradient(circle at 30% 30%, #aaa, #888 50%, #aaa), radial-gradient(circle at 70% 70%, #888, #666 50%, #888)",
+    };
+    function loadMaterials() {
+      try {
+        const stored = localStorage.getItem(MAT_STORAGE);
+        if (stored) return Object.assign({}, MAT_DEFAULTS, JSON.parse(stored));
+      } catch {}
+      return JSON.parse(JSON.stringify(MAT_DEFAULTS));
+    }
+    function saveMaterials(cfg) {
+      try { localStorage.setItem(MAT_STORAGE, JSON.stringify(cfg)); } catch {}
+    }
+    function updateSwatch(key, cfg) {
+      const sw = document.getElementById("swatch-" + key);
+      if (!sw) return;
+      sw.style.backgroundColor = cfg.color;
+      const tex = cfg.texture || "liso";
+      const bg = TEXTURE_BG[tex];
+      if (bg && bg !== "transparent") {
+        sw.style.backgroundImage = bg;
+      } else {
+        sw.style.backgroundImage = "";
+      }
+    }
+    function applyMaterialUI(cfg) {
+      for (const key of ["suelo", "pared", "cristal"]) {
+        const colorEl = document.getElementById(key + "-color");
+        const texEl = document.getElementById(key + "-texture");
+        if (colorEl) colorEl.value = cfg[key].color;
+        if (texEl) texEl.value = cfg[key].texture;
+        updateSwatch(key, cfg[key]);
+      }
+    }
+    let materials = loadMaterials();
+    applyMaterialUI(materials);
+    for (const key of ["suelo", "pared", "cristal"]) {
+      const colorEl = document.getElementById(key + "-color");
+      const texEl = document.getElementById(key + "-texture");
+      if (colorEl) colorEl.addEventListener("input", () => {
+        materials[key].color = colorEl.value;
+        saveMaterials(materials);
+        updateSwatch(key, materials[key]);
+      });
+      if (texEl) texEl.addEventListener("change", () => {
+        materials[key].texture = texEl.value;
+        saveMaterials(materials);
+        updateSwatch(key, materials[key]);
+      });
+    }
+    document.getElementById("reset-materials").addEventListener("click", () => {
+      materials = JSON.parse(JSON.stringify(MAT_DEFAULTS));
+      saveMaterials(materials);
+      applyMaterialUI(materials);
+    });
   </script>
 </body>
 </html>

@@ -88,38 +88,48 @@ try {
 const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
 const svgEl = doc.documentElement;
 
-const pathEl = svgEl.querySelector("path");
-const polyEl = svgEl.querySelector("polygon");
-const rectEl = svgEl.querySelector("rect");
-const lineEls = Array.from(svgEl.querySelectorAll("line"));
+// Elementos con clase semantica (v0.5.0). Si el SVG no las usa, fallback
+// a la primera forma disponible (compatibilidad con SVGs antiguos).
+const sueloEl = svgEl.querySelector('[class~="suelo"]')
+  || svgEl.querySelector('[class*="suelo"]')
+  || svgEl.querySelector("path")
+  || svgEl.querySelector("polygon")
+  || svgEl.querySelector("rect");
+const paredEls = Array.from(svgEl.querySelectorAll('[class~="pared"], [class*="pared"]'));
+const lineEls = paredEls.length > 0
+  ? [] // si hay paredes con clase, no usamos <line> sueltos
+  : Array.from(svgEl.querySelectorAll("line"));
+
+// Si no hay paredes con clase pero hay <line>, los tratamos como paredes.
+const wallLineEls = paredEls.length > 0 ? [] : lineEls;
 
 let mainContour = [];
 let interiorSegments = [];
 
-if (pathEl) {
-  const allContours = parsePathDAll(pathEl.getAttribute("d") || "");
-  // El primer sub-path es el contorno principal.
-  if (allContours.length === 0) {
-    showError("El <path> no contiene puntos.");
-    throw new Error("empty path");
-  }
-  mainContour = allContours[0];
-  // Los sub-paths M..L (sin Z) son paredes interiores.
-  for (let i = 1; i < allContours.length; i++) {
-    const c = allContours[i];
-    if (c.length === 2) {
-      interiorSegments.push(c);
-    } else if (c.length > 2) {
-      // Path con varios segmentos M..L: cada par consecutivo es una pared.
-      for (let j = 0; j < c.length - 1; j++) {
-        interiorSegments.push([c[j], c[j + 1]]);
+if (sueloEl) {
+  const tag = sueloEl.tagName.toLowerCase();
+  if (tag === "path") {
+    const allContours = parsePathDAll(sueloEl.getAttribute("d") || "");
+    if (allContours.length === 0) {
+      showError("El <path> no contiene puntos.");
+      throw new Error("empty path");
+    }
+    mainContour = allContours[0];
+    for (let i = 1; i < allContours.length; i++) {
+      const c = allContours[i];
+      if (c.length === 2) {
+        interiorSegments.push(c);
+      } else if (c.length > 2) {
+        for (let j = 0; j < c.length - 1; j++) {
+          interiorSegments.push([c[j], c[j + 1]]);
+        }
       }
     }
+  } else if (tag === "polygon") {
+    mainContour = parsePoints(sueloEl.getAttribute("points") || "");
+  } else if (tag === "rect") {
+    mainContour = parseRect(sueloEl);
   }
-} else if (polyEl) {
-  mainContour = parsePoints(polyEl.getAttribute("points") || "");
-} else if (rectEl) {
-  mainContour = parseRect(rectEl);
 } else {
   showError("El SVG no contiene <path>, <polygon> ni <rect>.");
   throw new Error("no shape");
@@ -211,7 +221,6 @@ const sueloGeom = new THREE.ExtrudeGeometry(sueloShape, {
   bevelEnabled: false,
 });
 sueloGeom.rotateX(-Math.PI / 2);
-const sueloMat = new THREE.MeshStandardMaterial({ color: 0xc4a988, roughness: 0.85 });
 const suelo = new THREE.Mesh(sueloGeom, sueloMat);
 suelo.position.set(widthCm / 2, 0, heightCm / 2);
 suelo.castShadow = true;
@@ -225,12 +234,63 @@ scene.add(suelo);
 //   Ancho = grosorCm (perpendicular al segmento).
 // Las paredes exteriores (los 4 lados del contorno) se meten en un Group
 // aparte para poder ocultarlas con el toggle del visor.
-const exteriorGroup = new THREE.Group();
-const interiorGroup = new THREE.Group();
-const paredMat = new THREE.MeshStandardMaterial({
-  color: 0xeee2cc,
-  roughness: 0.9,
-});
+// --- 5b) Materiales configurables (color + textura) -----------------------
+// Cada capa (suelo, pared, cristal) tiene un color base y una textura
+// procedural. Los valores por defecto se pueden sobreescribir desde:
+//   - Atributos data-color / data-texture en el SVG.
+//   - localStorage["vista3d-materials"] = JSON.
+//   - Query string ?sueloColor=...&paredTexture=... (cualquier propiedad).
+import { getTexture, listTextures } from "./textures.js";
+
+const STORAGE_KEY = "vista3d-materials";
+const DEFAULTS = {
+  suelo:   { color: 0xc4a988, texture: "liso",     roughness: 0.85 },
+  pared:   { color: 0xeee2cc, texture: "liso",     roughness: 0.9  },
+  cristal: { color: 0xb8d8f0, texture: "liso",     roughness: 0.15, opacity: 0.55 },
+};
+
+function readMaterialConfig() {
+  const cfg = JSON.parse(JSON.stringify(DEFAULTS));
+  // 1) localStorage (preferente)
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      for (const key of ["suelo", "pared", "cristal"]) {
+        if (parsed[key]) Object.assign(cfg[key], parsed[key]);
+      }
+    }
+  } catch {}
+  // 2) Query string (override puntual)
+  const q = new URLSearchParams(location.search);
+  for (const key of ["suelo", "pared", "cristal"]) {
+    const c = q.get(`${key}Color`);
+    if (c) cfg[key].color = parseInt(c.replace("#", ""), 16);
+    const t = q.get(`${key}Texture`);
+    if (t) cfg[key].texture = t;
+  }
+  return cfg;
+}
+
+function makeMaterial(cfg) {
+  const mat = new THREE.MeshStandardMaterial({
+    color: cfg.color,
+    roughness: cfg.roughness ?? 0.8,
+  });
+  if (cfg.texture && cfg.texture !== "liso") {
+    mat.map = getTexture(cfg.texture, cfg.color);
+  }
+  if (cfg.opacity != null) {
+    mat.transparent = true;
+    mat.opacity = cfg.opacity;
+  }
+  return mat;
+}
+
+const matCfg = readMaterialConfig();
+const sueloMat = makeMaterial(matCfg.suelo);
+const paredMat = makeMaterial(matCfg.pared);
+const cristalMat = makeMaterial(matCfg.cristal);
 
 // Paredes exteriores: cada lado del contorno.
 const exteriorWalls = [];
@@ -393,10 +453,8 @@ for (const info of paredesInfo) {
   const midZ = (z1 + z2) / 2 + heightCm / 2;
   for (const a of info.apertures) {
     if (a.kind !== "window") continue; // puertas: hueco vacio, sin panel
-    const mat = new THREE.MeshStandardMaterial({
-      color: 0xb8d8f0, roughness: 0.15, metalness: 0.2,
-      transparent: true, opacity: 0.55,
-    });
+    // Usamos el material configurado (incluye color + textura procedural).
+    const mat = cristalMat.clone();
     const cx = a.xCm + a.widthCm / 2 - len / 2;
     const cy = a.yCm + a.heightCm / 2;
     // Panel fino (2cm) centrado en el plano de la pared.
