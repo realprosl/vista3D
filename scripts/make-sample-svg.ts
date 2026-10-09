@@ -8,9 +8,9 @@
  *   - data-group            wall/floor/door/window/hole/furniture/label/dimension
  *   - data-room             habitacion a la que pertenece
  *   - data-wall-id          id de la pared padre (para aperturas)
- *   - data-color-exterior   color cara exterior/fachada
- *   - data-color-interior   color cara interior/pintura
- *   - data-color-extrusion  color del cuerpo extruido
+ *   - data-color-cara-a   color cara exterior/fachada
+ *   - data-color-cara-b   color cara interior/pintura
+ *   - data-color-cara-c  color del cuerpo extruido
  *   - data-color-top        color cara superior (suelo)
  *   - data-color-bottom     color cara inferior (suelo)
  *   - data-texture-*        liso/madera/baldosa/ladrillo/marmol/piedra
@@ -120,9 +120,9 @@ mkdirSync(outDir, { recursive: true });
   const paredesSvg = paredes.map(p =>
     `<line class="pared"
       data-id="${p.id}" data-name="${p.name}" data-group="wall" data-room="${p.room}"
-      data-color-exterior="${p.colorExt}" data-color-interior="${p.colorInt}"
-      data-color-extrusion="${p.colorExt2}" data-texture-exterior="liso"
-      data-texture-interior="liso" data-texture-extrusion="liso"
+      data-color-cara-a="${p.colorExt}" data-color-cara-b="${p.colorInt}"
+      data-color-cara-c="${p.colorExt2}" data-texture-cara-a="liso"
+      data-texture-cara-b="liso" data-texture-cara-c="liso"
       x1="${p.x1}" y1="${p.y1}" x2="${p.x2}" y2="${p.y2}"
       stroke="#5a3a1a" stroke-width="3" stroke-linecap="square"/>`
   ).join("\n  ");
@@ -380,8 +380,8 @@ const MALTO = 270;
   ];
   const exteriorParedesSvg = exteriorParedes.map(p =>
     `<line class="pared" data-id="${p.id}" data-name="${p.name}" data-group="wall" data-room=""
-      data-color-exterior="#d4c4a0" data-color-interior="#f5ead2" data-color-extrusion="#8b7355"
-      data-texture-exterior="liso" data-texture-interior="liso" data-texture-extrusion="liso"
+      data-color-cara-a="#d4c4a0" data-color-cara-b="#f5ead2" data-color-cara-c="#8b7355"
+      data-texture-cara-a="liso" data-texture-cara-b="liso" data-texture-cara-c="liso"
       x1="${p.x1}" y1="${p.y1}" x2="${p.x2}" y2="${p.y2}" stroke="#5a3a1a" stroke-width="3"/>`
   ).join("\n  ");
 
@@ -397,17 +397,17 @@ const MALTO = 270;
     const out = [];
     if (hueco) {
       out.push(`<line class="pared" data-id="${id}-a" data-group="wall" data-room="salon"
-        data-color-exterior="#d4c4a0" data-color-interior="#f5ead2" data-color-extrusion="#8b7355"
-        data-texture-exterior="liso" data-texture-interior="liso" data-texture-extrusion="liso"
+        data-color-cara-a="#d4c4a0" data-color-cara-b="#f5ead2" data-color-cara-c="#8b7355"
+        data-texture-cara-a="liso" data-texture-cara-b="liso" data-texture-cara-c="liso"
         x1="${x1}" y1="${y}" x2="${hueco.x1}" y2="${y}" stroke="#5a3a1a" stroke-width="3"/>`);
       out.push(`<line class="pared" data-id="${id}-b" data-group="wall" data-room="salon"
-        data-color-exterior="#d4c4a0" data-color-interior="#f5ead2" data-color-extrusion="#8b7355"
-        data-texture-exterior="liso" data-texture-interior="liso" data-texture-extrusion="liso"
+        data-color-cara-a="#d4c4a0" data-color-cara-b="#f5ead2" data-color-cara-c="#8b7355"
+        data-texture-cara-a="liso" data-texture-cara-b="liso" data-texture-cara-c="liso"
         x1="${hueco.x2}" y1="${y}" x2="${x2}" y2="${y}" stroke="#5a3a1a" stroke-width="3"/>`);
     } else {
       out.push(`<line class="pared" data-id="${id}" data-group="wall" data-room="salon"
-        data-color-exterior="#d4c4a0" data-color-interior="#f5ead2" data-color-extrusion="#8b7355"
-        data-texture-exterior="liso" data-texture-interior="liso" data-texture-extrusion="liso"
+        data-color-cara-a="#d4c4a0" data-color-cara-b="#f5ead2" data-color-cara-c="#8b7355"
+        data-texture-cara-a="liso" data-texture-cara-b="liso" data-texture-cara-c="liso"
         x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="#5a3a1a" stroke-width="3"/>`);
     }
     return out.join("\n  ");
@@ -416,17 +416,17 @@ const MALTO = 270;
     const out = [];
     if (hueco) {
       out.push(`<line class="pared" data-id="${id}-a" data-name="${name || ""}" data-group="wall" data-room="salon"
-        data-color-exterior="#d4c4a0" data-color-interior="#f5ead2" data-color-extrusion="#8b7355"
-        data-texture-exterior="liso" data-texture-interior="liso" data-texture-extrusion="liso"
+        data-color-cara-a="#d4c4a0" data-color-cara-b="#f5ead2" data-color-cara-c="#8b7355"
+        data-texture-cara-a="liso" data-texture-cara-b="liso" data-texture-cara-c="liso"
         x1="${x}" y1="${y1}" x2="${x}" y2="${hueco.y1}" stroke="#5a3a1a" stroke-width="3"/>`);
       out.push(`<line class="pared" data-id="${id}-b" data-name="${name || ""}" data-group="wall" data-room="dormitorio"
-        data-color-exterior="#d4c4a0" data-color-interior="#f5ead2" data-color-extrusion="#8b7355"
-        data-texture-exterior="liso" data-texture-interior="liso" data-texture-extrusion="liso"
+        data-color-cara-a="#d4c4a0" data-color-cara-b="#f5ead2" data-color-cara-c="#8b7355"
+        data-texture-cara-a="liso" data-texture-cara-b="liso" data-texture-cara-c="liso"
         x1="${x}" y1="${hueco.y2}" x2="${x}" y2="${y2}" stroke="#5a3a1a" stroke-width="3"/>`);
     } else {
       out.push(`<line class="pared" data-id="${id}" data-name="${name || ""}" data-group="wall" data-room="salon"
-        data-color-exterior="#d4c4a0" data-color-interior="#f5ead2" data-color-extrusion="#8b7355"
-        data-texture-exterior="liso" data-texture-interior="liso" data-texture-extrusion="liso"
+        data-color-cara-a="#d4c4a0" data-color-cara-b="#f5ead2" data-color-cara-c="#8b7355"
+        data-texture-cara-a="liso" data-texture-cara-b="liso" data-texture-cara-c="liso"
         x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="#5a3a1a" stroke-width="3"/>`);
     }
     return out.join("\n  ");
@@ -453,7 +453,7 @@ const MALTO = 270;
   ];
   const mueblesSvg = muebles.map(m =>
     `<rect class="mueble" data-id="${m.id}" data-name="${m.name}" data-group="furniture" data-room="${m.room}"
-      data-color-exterior="${m.fill}" data-texture-exterior="madera"
+      data-color-cara-a="${m.fill}" data-texture-cara-a="madera"
       x="${m.x}" y="${m.y}" width="${m.w}" height="${m.h}"
       fill="${m.fill}" stroke="#333" stroke-width="1" opacity="0.7"/>`
   ).join("\n  ");
@@ -480,23 +480,23 @@ const MALTO = 270;
   const aperturasMeta = `
   <rect class="puerta" data-id="door-entrada" data-name="Puerta entrada" data-group="door"
         data-room="salon" data-wall-id="wall-south"
-        data-color-exterior="#5a3a20" data-color-interior="#5a3a20" data-color-extrusion="#3a2a18"
-        data-texture-exterior="madera" data-texture-interior="madera" data-texture-extrusion="liso"
+        data-color-cara-a="#5a3a20" data-color-cara-b="#5a3a20" data-color-cara-c="#3a2a18"
+        data-texture-cara-a="madera" data-texture-cara-b="madera" data-texture-cara-c="liso"
         x="${fachadaSurPuertaX1 - maraOx}" y="${MH - 5}" width="${fachadaSurPuertaX2 - fachadaSurPuertaX1}" height="5"/>
   <rect class="ventana" data-id="window-salon" data-name="Ventana salón" data-group="window"
         data-room="salon" data-wall-id="wall-south"
-        data-color-exterior="#b8d8f0" data-color-interior="#b8d8f0" data-color-extrusion="#9fc8e8"
-        data-texture-exterior="liso"
+        data-color-cara-a="#b8d8f0" data-color-cara-b="#b8d8f0" data-color-cara-c="#9fc8e8"
+        data-texture-cara-a="liso"
         x="${fachadaSurVentana1.x1 - maraOx}" y="${MH - 5}" width="${fachadaSurVentana1.x2 - fachadaSurVentana1.x1}" height="5"/>
   <rect class="ventana" data-id="window-dorm" data-name="Ventana dormitorio" data-group="window"
         data-room="dormitorio" data-wall-id="wall-south"
-        data-color-exterior="#b8d8f0" data-color-interior="#b8d8f0" data-color-extrusion="#9fc8e8"
-        data-texture-exterior="liso"
+        data-color-cara-a="#b8d8f0" data-color-cara-b="#b8d8f0" data-color-cara-c="#9fc8e8"
+        data-texture-cara-a="liso"
         x="${fachadaSurVentana2.x1 - maraOx}" y="${MH - 5}" width="${fachadaSurVentana2.x2 - fachadaSurVentana2.x1}" height="5"/>
   <rect class="puerta" data-id="door-interior" data-name="Puerta interior" data-group="door"
         data-room="salon" data-wall-id="wall-mid"
-        data-color-exterior="#8b6f4a" data-color-interior="#8b6f4a" data-color-extrusion="#5a4023"
-        data-texture-exterior="madera" data-texture-interior="madera" data-texture-extrusion="liso"
+        data-color-cara-a="#8b6f4a" data-color-cara-b="#8b6f4a" data-color-cara-c="#5a4023"
+        data-texture-cara-a="madera" data-texture-cara-b="madera" data-texture-cara-c="liso"
         x="${muroInteriorX - maraOx - 3}" y="${puertaInteriorY1 - maraOy}" width="6" height="${puertaInteriorY2 - puertaInteriorY1}"/>
   `;
 
@@ -535,16 +535,16 @@ const MALTO = 270;
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W2} ${H2}" width="${W2}" height="${H2}"
      data-wall-id="wall-south" data-wall-width="${MW}">
   <line class="pared" data-id="wall-south" data-name="Muro sur" data-group="wall" data-room="salon"
-        data-color-exterior="#d4c4a0" data-color-interior="#f5ead2" data-color-extrusion="#8b7355"
-        data-texture-exterior="ladrillo" data-texture-interior="liso" data-texture-extrusion="liso"
+        data-color-cara-a="#d4c4a0" data-color-cara-b="#f5ead2" data-color-cara-c="#8b7355"
+        data-texture-cara-a="ladrillo" data-texture-cara-b="liso" data-texture-cara-c="liso"
         x1="0" y1="0" x2="${W2}" y2="0" stroke="#333" stroke-width="4"/>
   <line class="pared" data-id="wall-south-base" data-group="wall" data-room="salon"
         x1="0" y1="${H2 - 2}" x2="${W2}" y2="${H2 - 2}" stroke="#333" stroke-width="2"/>
 
   <rect class="puerta" data-id="door-entrada" data-name="Puerta entrada" data-group="door"
         data-room="salon" data-wall-id="wall-south"
-        data-color-exterior="#5a3a20" data-color-interior="#5a3a20" data-color-extrusion="#3a2a18"
-        data-texture-exterior="madera" data-texture-interior="madera" data-texture-extrusion="liso"
+        data-color-cara-a="#5a3a20" data-color-cara-b="#5a3a20" data-color-cara-c="#3a2a18"
+        data-texture-cara-a="madera" data-texture-cara-b="madera" data-texture-cara-c="liso"
         x="${puertaX}" y="${puertaY}" width="100" height="210"
         fill="#f5d99a" stroke="#5a3a1a" stroke-width="3"/>
   <path class="puerta" d="M ${puertaX + 100} ${puertaY} A 100 210 0 0 1 ${puertaX + 100} ${puertaY + 210}"
@@ -552,8 +552,8 @@ const MALTO = 270;
 
   <rect class="ventana" data-id="window-salon" data-name="Ventana salón" data-group="window"
         data-room="salon" data-wall-id="wall-south"
-        data-color-exterior="#b8d8f0" data-color-interior="#b8d8f0" data-color-extrusion="#9fc8e8"
-        data-texture-exterior="liso"
+        data-color-cara-a="#b8d8f0" data-color-cara-b="#b8d8f0" data-color-cara-c="#9fc8e8"
+        data-texture-cara-a="liso"
         x="${ventana1X}" y="${ventana1Y}" width="120" height="120"
         fill="#b8d8f0" stroke="#5a3a1a" stroke-width="3"/>
   <line class="ventana" x1="${ventana1X + 60}" y1="${ventana1Y}" x2="${ventana1X + 60}" y2="${ventana1Y + 120}" stroke="#5a3a1a" stroke-width="1.5"/>
@@ -561,8 +561,8 @@ const MALTO = 270;
 
   <rect class="ventana" data-id="window-dorm" data-name="Ventana dormitorio" data-group="window"
         data-room="dormitorio" data-wall-id="wall-south"
-        data-color-exterior="#b8d8f0" data-color-interior="#b8d8f0" data-color-extrusion="#9fc8e8"
-        data-texture-exterior="liso"
+        data-color-cara-a="#b8d8f0" data-color-cara-b="#b8d8f0" data-color-cara-c="#9fc8e8"
+        data-texture-cara-a="liso"
         x="${ventana2X}" y="${ventana2Y}" width="120" height="120"
         fill="#b8d8f0" stroke="#5a3a1a" stroke-width="3"/>
   <line class="ventana" x1="${ventana2X + 60}" y1="${ventana2Y}" x2="${ventana2X + 60}" y2="${ventana2Y + 120}" stroke="#5a3a1a" stroke-width="1.5"/>

@@ -6,9 +6,9 @@
  *   - Metadata: id, name, group, room, colors, textures, wallId
  *
  * Los atributos del SVG se leen en kebab-case (data-id, data-name,
- * data-group, data-room, data-color-exterior, data-color-interior,
- * data-color-extrusion, data-texture-exterior, data-texture-interior,
- * data-texture-extrusion, data-wall-id).
+ * data-group, data-room, data-color-cara-a, data-color-cara-b,
+ * data-color-cara-c, data-texture-cara-a, data-texture-cara-b,
+ * data-texture-cara-c, data-wall-id.
  *
  * Soporta elementos con clase:
  *   - .pared / .wall / .muro  (muros/paredes)         -> "wall"
@@ -68,14 +68,16 @@ export interface ElementSvg {
   wallId: string | null;
   /** Contorno geometrico (lista de puntos 2D). */
   contour: Contour;
-  /** Color exterior (#rrggbb o #rgb). Null si no esta definido. */
-  colorExterior: string | null;
-  colorInterior: string | null;
-  colorExtrusion: string | null;
-  /** Textura (liso, madera, baldosa, ladrillo, marmol, piedra). Null si no esta. */
-  textureExterior: string | null;
-  textureInterior: string | null;
-  textureExtrusion: string | null;
+  /** Colores por cara geometrica. Cara A = lado positivo de la normal
+   *  del Shape SVG (lado de arriba de la planta); Cara B = la opuesta;
+   *  Cara C = perfil lateral (bordes superior, inferior y de huecos). */
+  colorCaraA: string | null;
+  colorCaraB: string | null;
+  colorCaraC: string | null;
+  /** Texturas (liso, madera, baldosa, ladrillo, marmol, piedra). Null si no esta. */
+  textureCaraA: string | null;
+  textureCaraB: string | null;
+  textureCaraC: string | null;
   /** Texto de la cota/etiqueta (solo si group = dimension o label). */
   text: string | null;
 }
@@ -373,12 +375,12 @@ export function parseSvgElements(svg: string): SvgElementsResult {
       room: dataRoom,
       wallId: dataWallId,
       contour,
-      colorExterior: dataAttr(attrs, "data-color-exterior") || attrs["fill"] || null,
-      colorInterior: dataAttr(attrs, "data-color-interior") || null,
-      colorExtrusion: dataAttr(attrs, "data-color-extrusion") || null,
-      textureExterior: dataAttr(attrs, "data-texture-exterior"),
-      textureInterior: dataAttr(attrs, "data-texture-interior"),
-      textureExtrusion: dataAttr(attrs, "data-texture-extrusion"),
+      colorCaraA: dataAttr(attrs, "data-color-cara-a") || attrs["fill"] || null,
+      colorCaraB: dataAttr(attrs, "data-color-cara-b") || null,
+      colorCaraC: dataAttr(attrs, "data-color-cara-c") || null,
+      textureCaraA: dataAttr(attrs, "data-texture-cara-a"),
+      textureCaraB: dataAttr(attrs, "data-texture-cara-b"),
+      textureCaraC: dataAttr(attrs, "data-texture-cara-c"),
       text,
     };
 

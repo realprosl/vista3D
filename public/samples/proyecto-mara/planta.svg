@@ -5,61 +5,61 @@
         data-texture-top="liso" data-texture-bottom="liso"
         d="M 50 50 L 1050 50 L 1050 850 L 50 850 Z" fill="#c4a988" stroke="#8a6a48" stroke-width="3"/>
   <line class="pared" data-id="wall-mid-a" data-name="Muro medio salón-dormitorio" data-group="wall" data-room="salon"
-        data-color-exterior="#d4c4a0" data-color-interior="#f5ead2" data-color-extrusion="#8b7355"
-        data-texture-exterior="liso" data-texture-interior="liso" data-texture-extrusion="liso"
+        data-color-cara-a="#d4c4a0" data-color-cara-b="#f5ead2" data-color-cara-c="#8b7355"
+        data-texture-cara-a="liso" data-texture-cara-b="liso" data-texture-cara-c="liso"
         x1="600" y1="50" x2="600" y2="450" stroke="#5a3a1a" stroke-width="3"/>
   <line class="pared" data-id="wall-mid-b" data-name="Muro medio salón-dormitorio" data-group="wall" data-room="dormitorio"
-        data-color-exterior="#d4c4a0" data-color-interior="#f5ead2" data-color-extrusion="#8b7355"
-        data-texture-exterior="liso" data-texture-interior="liso" data-texture-extrusion="liso"
+        data-color-cara-a="#d4c4a0" data-color-cara-b="#f5ead2" data-color-cara-c="#8b7355"
+        data-texture-cara-a="liso" data-texture-cara-b="liso" data-texture-cara-c="liso"
         x1="600" y1="550" x2="600" y2="850" stroke="#5a3a1a" stroke-width="3"/>
   <line class="pared" data-id="wall-south" data-name="Muro sur" data-group="wall" data-room=""
-      data-color-exterior="#d4c4a0" data-color-interior="#f5ead2" data-color-extrusion="#8b7355"
-      data-texture-exterior="liso" data-texture-interior="liso" data-texture-extrusion="liso"
+      data-color-cara-a="#d4c4a0" data-color-cara-b="#f5ead2" data-color-cara-c="#8b7355"
+      data-texture-cara-a="liso" data-texture-cara-b="liso" data-texture-cara-c="liso"
       x1="50" y1="850" x2="1050" y2="850" stroke="#5a3a1a" stroke-width="3"/>
   <line class="pared" data-id="wall-north" data-name="Muro norte" data-group="wall" data-room=""
-      data-color-exterior="#d4c4a0" data-color-interior="#f5ead2" data-color-extrusion="#8b7355"
-      data-texture-exterior="liso" data-texture-interior="liso" data-texture-extrusion="liso"
+      data-color-cara-a="#d4c4a0" data-color-cara-b="#f5ead2" data-color-cara-c="#8b7355"
+      data-texture-cara-a="liso" data-texture-cara-b="liso" data-texture-cara-c="liso"
       x1="50" y1="50" x2="1050" y2="50" stroke="#5a3a1a" stroke-width="3"/>
   <line class="pared" data-id="wall-west" data-name="Muro oeste" data-group="wall" data-room=""
-      data-color-exterior="#d4c4a0" data-color-interior="#f5ead2" data-color-extrusion="#8b7355"
-      data-texture-exterior="liso" data-texture-interior="liso" data-texture-extrusion="liso"
+      data-color-cara-a="#d4c4a0" data-color-cara-b="#f5ead2" data-color-cara-c="#8b7355"
+      data-texture-cara-a="liso" data-texture-cara-b="liso" data-texture-cara-c="liso"
       x1="50" y1="50" x2="50" y2="850" stroke="#5a3a1a" stroke-width="3"/>
   <line class="pared" data-id="wall-east" data-name="Muro este" data-group="wall" data-room=""
-      data-color-exterior="#d4c4a0" data-color-interior="#f5ead2" data-color-extrusion="#8b7355"
-      data-texture-exterior="liso" data-texture-interior="liso" data-texture-extrusion="liso"
+      data-color-cara-a="#d4c4a0" data-color-cara-b="#f5ead2" data-color-cara-c="#8b7355"
+      data-texture-cara-a="liso" data-texture-cara-b="liso" data-texture-cara-c="liso"
       x1="1050" y1="50" x2="1050" y2="850" stroke="#5a3a1a" stroke-width="3"/>
   <rect class="mueble" data-id="sofa-1" data-name="Sofá" data-group="furniture" data-room="salon"
-      data-color-exterior="#8b6f4a" data-texture-exterior="madera"
+      data-color-cara-a="#8b6f4a" data-texture-cara-a="madera"
       x="100" y="100" width="250" height="90"
       fill="#8b6f4a" stroke="#333" stroke-width="1" opacity="0.7"/>
   <rect class="mueble" data-id="cama-1" data-name="Cama" data-group="furniture" data-room="dormitorio"
-      data-color-exterior="#a89070" data-texture-exterior="madera"
+      data-color-cara-a="#a89070" data-texture-cara-a="madera"
       x="650" y="100" width="200" height="160"
       fill="#a89070" stroke="#333" stroke-width="1" opacity="0.7"/>
   <rect class="mueble" data-id="mesa-1" data-name="Mesa salón" data-group="furniture" data-room="salon"
-      data-color-exterior="#9c7a55" data-texture-exterior="madera"
+      data-color-cara-a="#9c7a55" data-texture-cara-a="madera"
       x="400" y="100" width="120" height="80"
       fill="#9c7a55" stroke="#333" stroke-width="1" opacity="0.7"/>
   
   <rect class="puerta" data-id="door-entrada" data-name="Puerta entrada" data-group="door"
         data-room="salon" data-wall-id="wall-south"
-        data-color-exterior="#5a3a20" data-color-interior="#5a3a20" data-color-extrusion="#3a2a18"
-        data-texture-exterior="madera" data-texture-interior="madera" data-texture-extrusion="liso"
+        data-color-cara-a="#5a3a20" data-color-cara-b="#5a3a20" data-color-cara-c="#3a2a18"
+        data-texture-cara-a="madera" data-texture-cara-b="madera" data-texture-cara-c="liso"
         x="300" y="795" width="100" height="5"/>
   <rect class="ventana" data-id="window-salon" data-name="Ventana salón" data-group="window"
         data-room="salon" data-wall-id="wall-south"
-        data-color-exterior="#b8d8f0" data-color-interior="#b8d8f0" data-color-extrusion="#9fc8e8"
-        data-texture-exterior="liso"
+        data-color-cara-a="#b8d8f0" data-color-cara-b="#b8d8f0" data-color-cara-c="#9fc8e8"
+        data-texture-cara-a="liso"
         x="600" y="795" width="120" height="5"/>
   <rect class="ventana" data-id="window-dorm" data-name="Ventana dormitorio" data-group="window"
         data-room="dormitorio" data-wall-id="wall-south"
-        data-color-exterior="#b8d8f0" data-color-interior="#b8d8f0" data-color-extrusion="#9fc8e8"
-        data-texture-exterior="liso"
+        data-color-cara-a="#b8d8f0" data-color-cara-b="#b8d8f0" data-color-cara-c="#9fc8e8"
+        data-texture-cara-a="liso"
         x="800" y="795" width="120" height="5"/>
   <rect class="puerta" data-id="door-interior" data-name="Puerta interior" data-group="door"
         data-room="salon" data-wall-id="wall-mid"
-        data-color-exterior="#8b6f4a" data-color-interior="#8b6f4a" data-color-extrusion="#5a4023"
-        data-texture-exterior="madera" data-texture-interior="madera" data-texture-extrusion="liso"
+        data-color-cara-a="#8b6f4a" data-color-cara-b="#8b6f4a" data-color-cara-c="#5a4023"
+        data-texture-cara-a="madera" data-texture-cara-b="madera" data-texture-cara-c="liso"
         x="547" y="400" width="6" height="100"/>
   
   <text class="etiqueta" data-id="label-1" data-group="label" data-room="salon"

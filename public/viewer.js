@@ -397,6 +397,7 @@ huecoMat = makeMaterial({ color: 0x1a1a1a, texture: "liso", roughness: 0.95, sid
 // para que cada cara se pueda personalizar. La cara inferior (sueloDebajoMat)
 // se puede editar desde el panel de materiales.
 const suelo = new THREE.Mesh(sueloGeom, [sueloMat, sueloDebajoMat, sueloDebajoMat]);
+tagMesh(suelo, "suelo", "suelo-debajo");
 suelo.position.set(widthCm / 2, 0, heightCm / 2);
 suelo.castShadow = true;
 suelo.receiveShadow = true;
@@ -490,6 +491,14 @@ function buildWallMesh([x1, z1], [x2, z2], apertures = []) {
   m.castShadow = true;
   m.receiveShadow = true;
   return [m];
+}
+
+// Tag del elemento al que pertenece un mesh (suelo / pared / apertura).
+// Lo usa el Raycaster del popup flotante para saber qué elemento se ha clicado.
+// Cada mesh lleva un array de claves (puede pertenecer a varios keys si comparte
+// material con otros elementos del mismo tipo).
+function tagMesh(mesh, ...keys) {
+  mesh.userData.elementKeys = (mesh.userData.elementKeys || []).concat(keys);
 }
 
 // --- 6a) Emparejar alzados con paredes -------------------------------------
@@ -662,9 +671,9 @@ if (elementsData && elementsData.paredes && elementsData.paredes.length > 0 && u
       apertures,
       name: p.name,
       room: p.room,
-      colorExterior: p.colorExterior,
-      colorInterior: p.colorInterior,
-      colorExtrusion: p.colorExtrusion,
+      colorCaraA: p.colorCaraA,
+      colorCaraB: p.colorCaraB,
+      colorCaraC: p.colorCaraC,
     });
   }
 } else {
@@ -740,24 +749,27 @@ const huecoGroup = new THREE.Group(); // paneles de los huecos (interior del agu
 const MP_STORAGE = "vista3d-materials";
 const ELEMENT_DEFAULTS = {
   wall: {
-    exterior: { color: "#d4c4a0", texture: "liso" },
-    interior: { color: "#f5ead2", texture: "liso" },
-    extrusion: { color: "#8b7355", texture: "liso" },
+    // Cara A: lado positivo de la normal del Shape (cara "de arriba" de la planta).
+    caraA: { color: "#d4c4a0", texture: "liso" },
+    // Cara B: lado opuesto a la normal (cara "de abajo" de la planta).
+    caraB: { color: "#f5ead2", texture: "liso" },
+    // Cara C: perfil lateral (bordes superior/inferior y de huecos).
+    caraC: { color: "#8b7355", texture: "liso" },
   },
   door: {
-    exterior: { color: "#5a3a20", texture: "madera" },
-    interior: { color: "#5a3a20", texture: "madera" },
-    extrusion: { color: "#3a2a18", texture: "liso" },
+    caraA: { color: "#5a3a20", texture: "madera" },
+    caraB: { color: "#5a3a20", texture: "madera" },
+    caraC: { color: "#3a2a18", texture: "liso" },
   },
   window: {
-    exterior: { color: "#b8d8f0", texture: "liso" },
-    interior: { color: "#b8d8f0", texture: "liso" },
-    extrusion: { color: "#9fc8e8", texture: "liso" },
+    caraA: { color: "#b8d8f0", texture: "liso" },
+    caraB: { color: "#b8d8f0", texture: "liso" },
+    caraC: { color: "#9fc8e8", texture: "liso" },
   },
   hole: {
-    exterior: { color: "#1a1a1a", texture: "liso" },
-    interior: { color: "#1a1a1a", texture: "liso" },
-    extrusion: { color: "#0a0a0a", texture: "liso" },
+    caraA: { color: "#1a1a1a", texture: "liso" },
+    caraB: { color: "#1a1a1a", texture: "liso" },
+    caraC: { color: "#0a0a0a", texture: "liso" },
   },
 };
 const MP_GLOBALS = {
@@ -811,20 +823,20 @@ for (const info of paredesInfo) {
   _wallIdSet.add(info.wall);
   const niceName = niceWallName(info.wall);
   // Inicializar colores desde el SVG si estan disponibles.
-  const defaultExt = info.colorExterior || ELEMENT_DEFAULTS.wall.exterior.color;
-  const defaultInt = info.colorInterior || ELEMENT_DEFAULTS.wall.interior.color;
-  const defaultExtX = info.colorExtrusion || ELEMENT_DEFAULTS.wall.extrusion.color;
-  const defaultTexExt = info.textureExterior || ELEMENT_DEFAULTS.wall.exterior.texture;
-  const defaultTexInt = info.textureInterior || ELEMENT_DEFAULTS.wall.interior.texture;
-  const defaultTexExtX = info.textureExtrusion || ELEMENT_DEFAULTS.wall.extrusion.texture;
+  const defaultA = info.colorCaraA || ELEMENT_DEFAULTS.wall.caraA.color;
+  const defaultB = info.colorCaraB || ELEMENT_DEFAULTS.wall.caraB.color;
+  const defaultC = info.colorCaraC || ELEMENT_DEFAULTS.wall.caraC.color;
+  const defaultTexA = info.textureCaraA || ELEMENT_DEFAULTS.wall.caraA.texture;
+  const defaultTexB = info.textureCaraB || ELEMENT_DEFAULTS.wall.caraB.texture;
+  const defaultTexC = info.textureCaraC || ELEMENT_DEFAULTS.wall.caraC.texture;
   const w = {
     tipo: "wall",
     id: info.wall,
     label: "Pared " + niceName,
     wallLabel: info.room ? "(habitación " + info.room + ")" : "",
-    exterior: { color: defaultExt, texture: defaultTexExt },
-    interior: { color: defaultInt, texture: defaultTexInt },
-    extrusion: { color: defaultExtX, texture: defaultTexExtX },
+    caraA: { color: defaultA, texture: defaultTexA },
+    caraB: { color: defaultB, texture: defaultTexB },
+    caraC: { color: defaultC, texture: defaultTexC },
   };
   elementList.push(w);
   wallList.push(w);
@@ -876,15 +888,15 @@ for (const info of paredesInfo) {
       const id = matchedFromEndpoint ? matchedFromEndpoint.id : "puerta-" + _doorCount;
       ap = { tipo: "door", id, label: matchedFromEndpoint ? (matchedFromEndpoint.name || "Puerta " + _doorCount) : "Puerta " + _doorCount,
         wallId: info.wall, wallLabel,
-        exterior: matchedFromEndpoint && matchedFromEndpoint.colorExterior
-          ? { color: matchedFromEndpoint.colorExterior, texture: matchedFromEndpoint.textureExterior || "liso" }
-          : { ...ELEMENT_DEFAULTS.door.exterior },
-        interior: matchedFromEndpoint && matchedFromEndpoint.colorInterior
-          ? { color: matchedFromEndpoint.colorInterior, texture: matchedFromEndpoint.textureInterior || "liso" }
-          : { ...ELEMENT_DEFAULTS.door.interior },
-        extrusion: matchedFromEndpoint && matchedFromEndpoint.colorExtrusion
-          ? { color: matchedFromEndpoint.colorExtrusion, texture: matchedFromEndpoint.textureExtrusion || "liso" }
-          : { ...ELEMENT_DEFAULTS.door.extrusion },
+        caraA: matchedFromEndpoint && matchedFromEndpoint.colorCaraA
+          ? { color: matchedFromEndpoint.colorCaraA, texture: matchedFromEndpoint.textureCaraA || "liso" }
+          : { ...ELEMENT_DEFAULTS.door.caraA },
+        caraB: matchedFromEndpoint && matchedFromEndpoint.colorCaraB
+          ? { color: matchedFromEndpoint.colorCaraB, texture: matchedFromEndpoint.textureCaraB || "liso" }
+          : { ...ELEMENT_DEFAULTS.door.caraB },
+        caraC: matchedFromEndpoint && matchedFromEndpoint.colorCaraC
+          ? { color: matchedFromEndpoint.colorCaraC, texture: matchedFromEndpoint.textureCaraC || "liso" }
+          : { ...ELEMENT_DEFAULTS.door.caraC },
       };
       a.aperturaId = id;
     } else if (a.kind === "window") {
@@ -892,15 +904,15 @@ for (const info of paredesInfo) {
       const id = matchedFromEndpoint ? matchedFromEndpoint.id : "ventana-" + _winCount;
       ap = { tipo: "window", id, label: matchedFromEndpoint ? (matchedFromEndpoint.name || "Ventana " + _winCount) : "Ventana " + _winCount,
         wallId: info.wall, wallLabel,
-        exterior: matchedFromEndpoint && matchedFromEndpoint.colorExterior
-          ? { color: matchedFromEndpoint.colorExterior, texture: matchedFromEndpoint.textureExterior || "liso" }
-          : { ...ELEMENT_DEFAULTS.window.exterior },
-        interior: matchedFromEndpoint && matchedFromEndpoint.colorInterior
-          ? { color: matchedFromEndpoint.colorInterior, texture: matchedFromEndpoint.textureInterior || "liso" }
-          : { ...ELEMENT_DEFAULTS.window.interior },
-        extrusion: matchedFromEndpoint && matchedFromEndpoint.colorExtrusion
-          ? { color: matchedFromEndpoint.colorExtrusion, texture: matchedFromEndpoint.textureExtrusion || "liso" }
-          : { ...ELEMENT_DEFAULTS.window.extrusion },
+        caraA: matchedFromEndpoint && matchedFromEndpoint.colorCaraA
+          ? { color: matchedFromEndpoint.colorCaraA, texture: matchedFromEndpoint.textureCaraA || "liso" }
+          : { ...ELEMENT_DEFAULTS.window.caraA },
+        caraB: matchedFromEndpoint && matchedFromEndpoint.colorCaraB
+          ? { color: matchedFromEndpoint.colorCaraB, texture: matchedFromEndpoint.textureCaraB || "liso" }
+          : { ...ELEMENT_DEFAULTS.window.caraB },
+        caraC: matchedFromEndpoint && matchedFromEndpoint.colorCaraC
+          ? { color: matchedFromEndpoint.colorCaraC, texture: matchedFromEndpoint.textureCaraC || "liso" }
+          : { ...ELEMENT_DEFAULTS.window.caraC },
       };
       a.aperturaId = id;
     } else {
@@ -908,15 +920,15 @@ for (const info of paredesInfo) {
       const id = matchedFromEndpoint ? matchedFromEndpoint.id : "hueco-" + _holeCount;
       ap = { tipo: "hole", id, label: matchedFromEndpoint ? (matchedFromEndpoint.name || "Hueco " + _holeCount) : "Hueco " + _holeCount,
         wallId: info.wall, wallLabel,
-        exterior: matchedFromEndpoint && matchedFromEndpoint.colorExterior
-          ? { color: matchedFromEndpoint.colorExterior, texture: matchedFromEndpoint.textureExterior || "liso" }
-          : { ...ELEMENT_DEFAULTS.hole.exterior },
-        interior: matchedFromEndpoint && matchedFromEndpoint.colorInterior
-          ? { color: matchedFromEndpoint.colorInterior, texture: matchedFromEndpoint.textureInterior || "liso" }
-          : { ...ELEMENT_DEFAULTS.hole.interior },
-        extrusion: matchedFromEndpoint && matchedFromEndpoint.colorExtrusion
-          ? { color: matchedFromEndpoint.colorExtrusion, texture: matchedFromEndpoint.textureExtrusion || "liso" }
-          : { ...ELEMENT_DEFAULTS.hole.extrusion },
+        caraA: matchedFromEndpoint && matchedFromEndpoint.colorCaraA
+          ? { color: matchedFromEndpoint.colorCaraA, texture: matchedFromEndpoint.textureCaraA || "liso" }
+          : { ...ELEMENT_DEFAULTS.hole.caraA },
+        caraB: matchedFromEndpoint && matchedFromEndpoint.colorCaraB
+          ? { color: matchedFromEndpoint.colorCaraB, texture: matchedFromEndpoint.textureCaraB || "liso" }
+          : { ...ELEMENT_DEFAULTS.hole.caraB },
+        caraC: matchedFromEndpoint && matchedFromEndpoint.colorCaraC
+          ? { color: matchedFromEndpoint.colorCaraC, texture: matchedFromEndpoint.textureCaraC || "liso" }
+          : { ...ELEMENT_DEFAULTS.hole.caraC },
       };
       a.aperturaId = id;
     }
@@ -969,6 +981,9 @@ for (const info of paredesInfo) {
   const wMat = [paredExtMat.clone(), paredIntMat.clone(), paredExtMat.clone()];
   for (const m of meshes) {
     m.material = wMat;
+    // Tag para el Raycaster: cada mesh de esta pared está asociado a
+    // las 3 caras de la key del panel (cara-a, cara-b, cara-c).
+    tagMesh(m, `wall:${info.wall}:cara-a`, `wall:${info.wall}:cara-b`, `wall:${info.wall}:cara-c`);
     exteriorGroup.add(m);
   }
   wallMeshLookup.set(info.wall + "_meshes", meshes);
@@ -995,6 +1010,9 @@ for (const info of paredesInfo) {
       huecoGeom.rotateY(-angle);
       huecoGeom.translate(midX + cx * Math.cos(angle), 0, midZ + cx * Math.sin(angle));
       const huecoMesh = new THREE.Mesh(huecoGeom, huecoMat);
+      // Tag del Raycaster: el "hueco" se asocia a la key global
+      // `hueco` del panel (compartido por todas las aperturas).
+      tagMesh(huecoMesh, "hueco");
       huecoGroup.add(huecoMesh);
     }
     // 2) Si es ventana: panel fino de cristal semitransparente.
@@ -1009,6 +1027,8 @@ for (const info of paredesInfo) {
       const m = new THREE.Mesh(geom, mat);
       m.castShadow = true;
       m.receiveShadow = true;
+      // Tag del Raycaster: las 3 caras de esta ventana concreta.
+      tagMesh(m, `window:${aperturaId}:cara-a`, `window:${aperturaId}:cara-b`, `window:${aperturaId}:cara-c`);
       apertureGroup.add(m);
       // Lookup mesh de esta apertura individual
       if (typeof aperturaMeshLookup !== "undefined" && aperturaMeshLookup) {
@@ -1029,6 +1049,8 @@ for (const info of paredesInfo) {
       const m = new THREE.Mesh(geom, mat);
       m.castShadow = true;
       m.receiveShadow = true;
+      // Tag del Raycaster: las 3 caras de esta puerta concreta.
+      tagMesh(m, `door:${aperturaId}:cara-a`, `door:${aperturaId}:cara-b`, `door:${aperturaId}:cara-c`);
       doorGroup.add(m);
       if (typeof aperturaMeshLookup !== "undefined" && aperturaMeshLookup) {
         if (!aperturaMeshLookup.has(aperturaId)) aperturaMeshLookup.set(aperturaId, []);
@@ -1120,9 +1142,9 @@ function syncStageSize() {
 
 const MP_DEFAULTS = { ...MP_GLOBALS };
 for (const e of elementList) {
-  MP_DEFAULTS[e.tipo + ":" + e.id + ":exterior"] = e.exterior;
-  MP_DEFAULTS[e.tipo + ":" + e.id + ":interior"] = e.interior;
-  MP_DEFAULTS[e.tipo + ":" + e.id + ":extrusion"] = e.extrusion;
+  MP_DEFAULTS[e.tipo + ":" + e.id + ":cara-a"] = e.caraA;
+  MP_DEFAULTS[e.tipo + ":" + e.id + ":cara-b"] = e.caraB;
+  MP_DEFAULTS[e.tipo + ":" + e.id + ":cara-c"] = e.caraC;
 }
 const MP_KEYS = Object.keys(MP_DEFAULTS);
 
@@ -1191,25 +1213,23 @@ function applyMPToMesh(key, cfg) {
     const meshes = wallMeshLookup.get(id + "_meshes") || [];
     for (const mesh of meshes) {
       // Cada mesh de pared tiene 3 materiales (ExtrudeGeometry):
-      //   [0] = cara frontal (fachada)        -> exterior
-      //   [1] = cara trasera (pintura)         -> interior
-      //   [2] = caras laterales (bordes)       -> exterior (siguen siendo fachada)
-      // Si por alguna razon mesh.material no es un array, lo inicializamos.
+      //   [0] = cara A (frontal, lado positivo de la normal del Shape)
+      //   [1] = cara B (trasera, opuesta a la normal)
+      //   [2] = cara C (perfil lateral: bordes superior, inferior y de huecos)
       if (!Array.isArray(mesh.material) || mesh.material.length < 3) {
         mesh.material = [paredExtMat.clone(), paredIntMat.clone(), paredExtMat.clone()];
       }
-      if (face === "exterior") {
-        // Fachada (slot 0) y bordes (slot 2). Mutar los materiales en sitio
-        // para no crear nuevos y no romper referencias compartidas.
+      if (face === "cara-a") {
+        // Cara A (slot 0) y bordes C (slot 2) comparten la misma textura
+        // por defecto (visualmente son la "cara externa" del muro).
         applyMatFromCfg(mesh.material[0], cfg, { roughness: 0.9 });
         applyMatFromCfg(mesh.material[2], cfg, { roughness: 0.9 });
-      } else if (face === "interior") {
-        // Cara trasera (slot 1). Mutar el material existente.
+      } else if (face === "cara-b") {
+        // Cara B (slot 1): la cara opuesta a la normal.
         applyMatFromCfg(mesh.material[1], cfg, { roughness: 0.9 });
-      } else if (face === "extrusion") {
-        // La extrusión de la pared es el fondo del hueco. No se aplica
-        // al mesh de la pared (el hueco tiene su propio mesh/material).
-        // Lo dejamos vacio: sin efecto.
+      } else if (face === "cara-c") {
+        // Perfil lateral (slot 2): el borde del muro, visible desde arriba.
+        applyMatFromCfg(mesh.material[2], cfg, { roughness: 0.9 });
       }
     }
     return;
@@ -1293,9 +1313,9 @@ if (wallsListEl) {
       </summary>
       <div class="mp-element-body">
         ${sub}
-        ${makeRow(e.tipo + ":" + e.id + ":exterior", "Exterior", e.exterior.color, e.exterior.texture)}
-        ${makeRow(e.tipo + ":" + e.id + ":interior", "Interior", e.interior.color, e.interior.texture)}
-        ${makeRow(e.tipo + ":" + e.id + ":extrusion", "Extrusión", e.extrusion.color, e.extrusion.texture)}
+        ${makeRow(e.tipo + ":" + e.id + ":cara-a", "Cara A", e.caraA.color, e.caraA.texture)}
+        ${makeRow(e.tipo + ":" + e.id + ":cara-b", "Cara B", e.caraB.color, e.caraB.texture)}
+        ${makeRow(e.tipo + ":" + e.id + ":cara-c", "Cara C", e.caraC.color, e.caraC.texture)}
       </div>`;
     wallsListEl.appendChild(details);
   }
@@ -1324,9 +1344,173 @@ function bindRow(key, colorEl, texEl) {
   }
 }
 
+// --- Raycaster: selección de elementos en el visor 3D ---------------------
+// Al hacer click en un mesh del modelo, abre una ventana flotante con
+// los atributos de ese elemento (Cara A / Cara B / Cara C).
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+let pickerOpen = false;
+let lastSelectedKey = null; // key de MP_KEYS actualmente mostrada
+
+const popupEl = document.getElementById("picker-popup");
+const popupTitleEl = document.getElementById("pp-title");
+const popupSubEl = document.getElementById("pp-sub");
+const popupBodyEl = document.getElementById("pp-body");
+const popupCloseEl = document.getElementById("pp-close");
+if (popupCloseEl) popupCloseEl.addEventListener("click", closePickerPopup);
+
+// Lista de meshes "pickable": todos los meshes creados en este viewer
+// que tengan userData.elementKeys.
+function allPickableMeshes() {
+  const out = [];
+  scene.traverse((obj) => {
+    if (obj.isMesh && obj.userData.elementKeys && obj.userData.elementKeys.length) {
+      out.push(obj);
+    }
+  });
+  return out;
+}
+
+// Devuelve el nombre legible de un elemento a partir de su key
+// (e.g. "wall:wall-south:cara-a" -> "Pared Muro sur").
+function labelForKey(key) {
+  const [tipo, id, face] = key.split(":");
+  if (tipo === "wall") {
+    const w = wallList.find((w) => w.id === id);
+    return w ? `Pared · ${w.label || id}` : `Pared · ${id}`;
+  }
+  if (tipo === "door") {
+    const a = aperturaList.find((a) => a.id === id);
+    return a ? `Puerta · ${a.label || id}` : `Puerta · ${id}`;
+  }
+  if (tipo === "window") {
+    const a = aperturaList.find((a) => a.id === id);
+    return a ? `Ventana · ${a.label || id}` : `Ventana · ${id}`;
+  }
+  if (tipo === "hole") {
+    return "Hueco";
+  }
+  if (tipo === "suelo") return "Suelo · cara superior";
+  if (tipo === "suelo-debajo") return "Suelo · cara inferior (forjado)";
+  return key;
+}
+
+function openPickerPopup(key, clientX, clientY) {
+  if (!popupEl) return;
+  // Si la key es de un suelo/apertura genérica (no cara-a/b/c), derivamos a cara-a
+  let realKey = key;
+  if (key === "suelo") realKey = "suelo";
+  else if (key === "suelo-debajo") realKey = "suelo-debajo";
+  else if (key === "hueco") realKey = "hueco";
+  // Aperturas: si la key tiene cara-*, mantenla; si no, mostramos las 3 caras de esa apertura
+  const [tipo, id, face] = realKey.split(":");
+  const elementBaseKey = `${tipo}:${id}`; // sin cara
+  const isSingle = ["suelo", "suelo-debajo", "hueco"].includes(tipo);
+  const faces = isSingle ? [null] : ["cara-a", "cara-b", "cara-c"];
+
+  lastSelectedKey = realKey;
+  popupTitleEl.textContent = labelForKey(realKey);
+  popupSubEl.textContent = isSingle ? "Atributos" : `Atributos (Cara A / Cara B / Cara C)`;
+
+  // Construir el body: 1 fila por cara (o 1 fila si es suelo/hueco).
+  const mpNow = loadMP();
+  popupBodyEl.innerHTML = "";
+  for (const f of faces) {
+    const k = f ? `${elementBaseKey}:${f}` : realKey;
+    const cfg = mpNow[k] || { color: "#888888", texture: "liso" };
+    const row = document.createElement("div");
+    row.className = "pp-face";
+    const labelText = f ? ({
+      "cara-a": "Cara A",
+      "cara-b": "Cara B",
+      "cara-c": "Cara C",
+    }[f] || f) : labelForKey(realKey);
+    row.innerHTML = `
+      <label>${labelText}</label>
+      <input type="color" value="${cfg.color}" data-k="${k}" data-role="color" />
+      <select data-k="${k}" data-role="texture">
+        <option value="liso"${cfg.texture === "liso" ? " selected" : ""}>Liso</option>
+        <option value="madera"${cfg.texture === "madera" ? " selected" : ""}>Madera</option>
+        <option value="baldosa"${cfg.texture === "baldosa" ? " selected" : ""}>Baldosa</option>
+        <option value="ladrillo"${cfg.texture === "ladrillo" ? " selected" : ""}>Ladrillo</option>
+        <option value="marmol"${cfg.texture === "marmol" ? " selected" : ""}>Mármol</option>
+        <option value="piedra"${cfg.texture === "piedra" ? " selected" : ""}>Piedra</option>
+      </select>
+    `;
+    popupBodyEl.appendChild(row);
+  }
+  // Vincular cambios: cualquier cambio actualiza MP, aplica al mesh, y
+  // sincroniza el input del panel lateral (si existe).
+  popupBodyEl.querySelectorAll("input[data-k], select[data-k]").forEach((inp) => {
+    inp.addEventListener("input", (ev) => {
+      const k = ev.target.dataset.k;
+      const role = ev.target.dataset.role;
+      const mpCur = loadMP();
+      if (!mpCur[k]) mpCur[k] = { color: "#888888", texture: "liso" };
+      if (role === "color") mpCur[k].color = ev.target.value;
+      if (role === "texture") mpCur[k].texture = ev.target.value;
+      saveMP(mpCur);
+      applyMPToMesh(k, mpCur[k]);
+      // Sincronizar con el input del sidebar si existe.
+      const side = document.querySelector(`.mp-color[data-pid="${k}"]`);
+      if (side && role === "color") side.value = ev.target.value;
+      const sideTex = document.querySelector(`.mp-tex[data-pid="${k}"]`);
+      if (sideTex && role === "texture") sideTex.value = ev.target.value;
+    });
+  });
+
+  // Posicionar el popup cerca del click pero dentro de la ventana.
+  popupEl.hidden = false;
+  pickerOpen = true;
+  const r = popupEl.getBoundingClientRect();
+  let px = clientX + 14;
+  let py = clientY + 14;
+  if (px + r.width > innerWidth - 8) px = innerWidth - r.width - 8;
+  if (py + r.height > innerHeight - 8) py = innerHeight - r.height - 8;
+  popupEl.style.left = px + "px";
+  popupEl.style.top = py + "px";
+}
+
+function closePickerPopup() {
+  if (!popupEl) return;
+  popupEl.hidden = true;
+  pickerOpen = false;
+  lastSelectedKey = null;
+}
+
+// Click en el canvas: lanzar raycaster y, si hay hit, abrir el popup.
+renderer.domElement.addEventListener("click", (ev) => {
+  const rect = renderer.domElement.getBoundingClientRect();
+  mouse.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObjects(allPickableMeshes(), false);
+  if (hits.length === 0) {
+    // Click en el vacio: cerrar el popup.
+    if (pickerOpen) closePickerPopup();
+    return;
+  }
+  // Tomamos el primer mesh con userData.elementKeys.
+  const m = hits[0].object;
+  const keys = m.userData.elementKeys;
+  if (!keys || keys.length === 0) return;
+  openPickerPopup(keys[0], ev.clientX, ev.clientY);
+});
+
+// Hover: cambiar cursor a pointer si hay un elemento bajo el ratón.
+renderer.domElement.addEventListener("mousemove", (ev) => {
+  const rect = renderer.domElement.getBoundingClientRect();
+  mouse.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObjects(allPickableMeshes(), false);
+  if (hits.length > 0) renderer.domElement.classList.add("pickable");
+  else renderer.domElement.classList.remove("pickable");
+});
+
 // Vincular todas las filas: cada elemento tiene 3 sub-filas.
 for (const e of elementList) {
-  for (const face of ["exterior", "interior", "extrusion"]) {
+  for (const face of ["cara-a", "cara-b", "cara-c"]) {
     const k = e.tipo + ":" + e.id + ":" + face;
     bindRow(k,
       document.querySelector(`.mp-color[data-pid="${k}"]`),
@@ -1346,9 +1530,9 @@ document.getElementById("mp-reset")?.addEventListener("click", () => {
   for (const key of MP_KEYS) {
     mp[key] = { ...MP_DEFAULTS[key] };
   }
-  // Actualizar todos los inputs (incluidos los de los elementos individuales)
+  // Actualizar todos los inputs del sidebar si existen
   for (const e of elementList) {
-    for (const face of ["exterior", "interior", "extrusion"]) {
+    for (const face of ["cara-a", "cara-b", "cara-c"]) {
       const k = e.tipo + ":" + e.id + ":" + face;
       const c = document.querySelector(`.mp-color[data-pid="${k}"]`);
       const t = document.querySelector(`.mp-tex[data-pid="${k}"]`);
@@ -1364,6 +1548,17 @@ document.getElementById("mp-reset")?.addEventListener("click", () => {
     if (t) t.value = mp[key].texture;
     applyMPToMesh(key, mp[key]);
   }
+  // Si el popup flotante está abierto, actualizar sus inputs también
+  if (pickerOpen && lastSelectedKey) {
+    const inputs = popupBodyEl.querySelectorAll("input[data-k], select[data-k]");
+    inputs.forEach((inp) => {
+      const k = inp.dataset.k;
+      if (mp[k]) {
+        if (inp.dataset.role === "color") inp.value = mp[k].color;
+        if (inp.dataset.role === "texture") inp.value = mp[k].texture;
+      }
+    });
+  }
   saveMP(mp);
 });
 
@@ -1375,9 +1570,9 @@ if (params.get("seed")) {
   const t = params.get("seed");
   for (const key of MP_KEYS) {
     if (key.startsWith("wall:") || key.startsWith("door:") || key.startsWith("window:") || key.startsWith("hole:")
-        || key === "suelo" || key === "pared-default-ext") {
-      // Solo aplicar a la cara exterior (fachada) de paredes y al suelo.
-      if (key.endsWith(":exterior") || key === "suelo") {
+        || key === "suelo") {
+      // Solo aplicar a la cara A (frontal) de paredes y al suelo.
+      if (key.endsWith(":cara-a") || key === "suelo") {
         mp[key].texture = t;
         applyMPToMesh(key, mp[key]);
       }
@@ -1385,7 +1580,7 @@ if (params.get("seed")) {
   }
   // Tambien actualizar el <select> del DOM para que el panel refleje
   // la nueva textura.
-  for (const key of ["suelo", ...wallList.map(w => "wall:" + w.id + ":exterior")]) {
+  for (const key of ["suelo", ...wallList.map(w => "wall:" + w.id + ":cara-a")]) {
     const inp = document.querySelector(`.mp-color[data-pid="${key}"]`);
     if (inp) {
       // El selector de textura esta en el mismo bloque; lo buscamos.
@@ -1492,7 +1687,8 @@ function parseRect(r) {
 }
 
 // --- Sidebar open/close ----------------------------------------------------
-// El sidebar empieza abierto en desktop, cerrado en movil.
+// El sidebar empieza CERRADO. El usuario lo abre con el boton hamburguesa.
+// Los colores y materiales se editan desde la ventana flotante (click en 3D).
 function isMobile() { return innerWidth <= 720; }
 function openSidebar() {
   document.body.classList.add("sidebar-open");
@@ -1507,7 +1703,6 @@ document.getElementById("sidebar-toggle")?.addEventListener("click", () => {
   else openSidebar();
 });
 document.getElementById("sidebar-close")?.addEventListener("click", closeSidebar);
-if (!isMobile()) openSidebar();
 
 // Debug: estado del suelo al final (despues de seed)
 if (params.get("seed") && suelo && suelo.material) {

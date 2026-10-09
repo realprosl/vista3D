@@ -336,12 +336,12 @@ app.get("/api/projects/:id/elements", (req, res) => {
       widthCm: number;
       yCm: number;
       heightCm: number;
-      colorExterior: string | null;
-      colorInterior: string | null;
-      colorExtrusion: string | null;
-      textureExterior: string | null;
-      textureInterior: string | null;
-      textureExtrusion: string | null;
+      colorCaraA: string | null;
+      colorCaraB: string | null;
+      colorCaraC: string | null;
+      textureCaraA: string | null;
+      textureCaraB: string | null;
+      textureCaraC: string | null;
     }>;
   }> = {};
   if (existsSync(alzadosDir)) {

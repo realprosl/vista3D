@@ -14,16 +14,16 @@
  *
  * Atributos de los elementos (kebab-case):
  *   - data-id, data-name, data-group, data-room (mismos que en la planta)
- *   - data-color-exterior, data-color-interior, data-color-extrusion
- *   - data-texture-exterior, data-texture-interior, data-texture-extrusion
+ *   - data-color-cara-a, data-color-cara-b, data-color-cara-c
+ *   - data-texture-cara-a, data-texture-cara-b, data-texture-cara-c
  *
  * Salida (parseElevationElements):
  *   {
  *     wallId, wallWidthCm, widthCm, heightCm, viewBox,
  *     apertures: [
  *       { id, name, group, room, parentWallId, xCm, widthCm, yCm, heightCm,
- *         colorExterior, colorInterior, colorExtrusion,
- *         textureExterior, textureInterior, textureExtrusion }
+ *         colorCaraA, colorCaraB, colorCaraC,
+ *         textureCaraA, textureCaraB, textureCaraC }
  *     ]
  *   }
  *
@@ -68,12 +68,12 @@ export interface ElevationApertureElement {
   widthCm: number;
   yCm: number;
   heightCm: number;
-  colorExterior: string | null;
-  colorInterior: string | null;
-  colorExtrusion: string | null;
-  textureExterior: string | null;
-  textureInterior: string | null;
-  textureExtrusion: string | null;
+  colorCaraA: string | null;
+  colorCaraB: string | null;
+  colorCaraC: string | null;
+  textureCaraA: string | null;
+  textureCaraB: string | null;
+  textureCaraC: string | null;
 }
 
 export interface ElevationElements {
@@ -246,12 +246,12 @@ export function parseElevationElements(svg: string): ElevationElements {
       widthCm: w,
       yCm: y,
       heightCm: h,
-      colorExterior: dataAttr(attrs, "data-color-exterior") || attrs["fill"] || null,
-      colorInterior: dataAttr(attrs, "data-color-interior"),
-      colorExtrusion: dataAttr(attrs, "data-color-extrusion"),
-      textureExterior: dataAttr(attrs, "data-texture-exterior"),
-      textureInterior: dataAttr(attrs, "data-texture-interior"),
-      textureExtrusion: dataAttr(attrs, "data-texture-extrusion"),
+      colorCaraA: dataAttr(attrs, "data-color-cara-a") || attrs["fill"] || null,
+      colorCaraB: dataAttr(attrs, "data-color-cara-b"),
+      colorCaraC: dataAttr(attrs, "data-color-cara-c"),
+      textureCaraA: dataAttr(attrs, "data-texture-cara-a"),
+      textureCaraB: dataAttr(attrs, "data-texture-cara-b"),
+      textureCaraC: dataAttr(attrs, "data-texture-cara-c"),
     });
   }
 

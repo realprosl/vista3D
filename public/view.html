@@ -288,22 +288,109 @@
       #sidebar { width: 100%; }
       body.sidebar-open #stage { right: 0; }
     }
+
+    /* ---- Bloques colapsables de elementos (mp-block) ---- */
+    .mp-block {
+      background: rgba(0, 0, 0, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      margin: 8px 0;
+      overflow: hidden;
+    }
+    .mp-block-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text, #e8d8b8);
+      list-style: none;
+      user-select: none;
+    }
+    .mp-block-title::-webkit-details-marker { display: none; }
+    .mp-block-title .chevron {
+      width: 14px; height: 14px;
+      transition: transform 0.2s ease;
+    }
+    .mp-block[open] .mp-block-title .chevron { transform: rotate(180deg); }
+    .mp-block-body {
+      padding: 4px 12px 10px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+
+    /* ---- Ventana flotante de selección 3D ---- */
+    #picker-popup {
+      position: fixed;
+      z-index: 1000;
+      min-width: 240px;
+      max-width: 320px;
+      background: rgba(20, 14, 8, 0.97);
+      color: #e8d8b8;
+      border: 1px solid rgba(255, 200, 120, 0.35);
+      border-radius: 10px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    }
+    #picker-popup[hidden] { display: none; }
+    .pp-header {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 8px;
+      padding: 10px 12px;
+      background: rgba(255, 200, 120, 0.08);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .pp-title { font-size: 14px; font-weight: 700; color: #fff; }
+    .pp-sub { font-size: 11px; color: rgba(232, 216, 184, 0.6); margin-top: 2px; }
+    #pp-close {
+      background: transparent;
+      border: none;
+      color: rgba(232, 216, 184, 0.7);
+      font-size: 22px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0 4px;
+    }
+    #pp-close:hover { color: #fff; }
+    .pp-body { padding: 8px 12px 10px; display: flex; flex-direction: column; gap: 8px; }
+    .pp-face {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .pp-face label {
+      flex: 0 0 50px;
+      font-size: 11px;
+      color: rgba(232, 216, 184, 0.85);
+    }
+    .pp-face input[type="color"] {
+      flex: 0 0 36px;
+      width: 36px; height: 28px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+      background: transparent;
+      cursor: pointer;
+      padding: 0;
+    }
+    .pp-face select {
+      flex: 1;
+      min-width: 0;
+      background: rgba(0, 0, 0, 0.3);
+      color: #e8d8b8;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+      padding: 4px 6px;
+      font-size: 12px;
+    }
+    /* Cursor pointer cuando hay elemento bajo el ratón */
+    canvas.pickable { cursor: pointer; }
   </style>
   <script>
-    // En movil (ancho <= 720px) abrir el sidebar por defecto para que el
-    // usuario vea los controles inmediatamente sin tener que pulsar el menu.
-    function openSidebarIfMobile() {
-      if (window.matchMedia && window.matchMedia("(max-width: 720px)").matches) {
-        document.body.classList.add("sidebar-open");
-      }
-    }
-    // Esperar al DOMContentLoaded siempre (el <body> todavia no existe en el head).
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", openSidebarIfMobile);
-    } else {
-      // El script se ha ejecutado despues de que el body este listo (caso raro).
-      openSidebarIfMobile();
-    }
+    // El sidebar NUNCA se abre solo. El usuario decide cuando abrirlo con
+    // el boton del menu hamburguesa. Los colores y materiales se editan
+    // haciendo click en los elementos del visor 3D (ventana flotante).
   </script>
 </head>
 <body>
@@ -329,6 +416,7 @@
               <li><b>Arrastrar</b> (botón izquierdo) — rotar</li>
               <li><b>Scroll</b> — zoom</li>
               <li><b>Click derecho + arrastrar</b> — mover</li>
+              <li><b>Click en un elemento</b> — editar sus colores</li>
             </ul>
           </div>
         </span>
@@ -340,6 +428,12 @@
         </svg>
         Volver
       </a>
+      <button class="header-btn reset" id="mp-reset" type="button" title="Restablecer todos los colores y texturas por defecto" aria-label="Restablecer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 12a9 9 0 1 0 3-6.7"/>
+          <polyline points="3 4 3 9 8 9"/>
+        </svg>
+      </button>
       <button class="header-btn close" id="sidebar-close" type="button" title="Cerrar" aria-label="Cerrar panel">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="18" y1="6" x2="6" y2="18"/>
@@ -388,94 +482,26 @@
           </button>
         </div>
       </details>
-
-      <!-- Materiales -->
-      <details class="sb-section" open>
-        <summary class="sb-section-title">
-          Materiales
-          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-        </summary>
-        <div class="sb-section-body" id="materials-body">
-          <div class="mp-row" data-key="suelo">
-            <input type="color" id="mp-suelo-color" value="#c4a988" title="Color de la cara superior del suelo">
-            <div class="mp-name">Cara superior del suelo</div>
-            <select id="mp-suelo-texture" title="Textura del suelo">
-              <option value="liso">Liso</option>
-              <option value="madera">Madera</option>
-              <option value="baldosa">Baldosa</option>
-              <option value="ladrillo">Ladrillo</option>
-              <option value="marmol">Mármol</option>
-              <option value="piedra">Piedra</option>
-            </select>
-          </div>
-          <div class="mp-row" data-key="suelo-debajo">
-            <input type="color" id="mp-suelo-debajo-color" value="#6a5a48" title="Color de la cara inferior del suelo">
-            <div class="mp-name">Cara inferior del suelo (forjado)</div>
-            <select id="mp-suelo-debajo-texture" title="Textura del forjado">
-              <option value="liso">Liso</option>
-              <option value="madera">Madera</option>
-              <option value="baldosa">Baldosa</option>
-              <option value="ladrillo">Ladrillo</option>
-              <option value="marmol">Mármol</option>
-              <option value="piedra">Piedra</option>
-            </select>
-          </div>
-
-          <div id="mp-walls-list">
-            <!-- Se rellena desde viewer.js: una entrada por pared,
-                 con sub-filas para Fachada (exterior) e Interior. -->
-          </div>
-
-          <div class="mp-row" data-key="cristal">
-            <input type="color" id="mp-cristal-color" value="#b8d8f0" title="Color del cristal">
-            <div class="mp-name">Cristal ventanas</div>
-            <select id="mp-cristal-texture" title="Textura del cristal">
-              <option value="liso">Liso</option>
-              <option value="madera">Madera</option>
-              <option value="baldosa">Baldosa</option>
-              <option value="ladrillo">Ladrillo</option>
-              <option value="marmol">Mármol</option>
-              <option value="piedra">Piedra</option>
-            </select>
-          </div>
-
-          <div class="mp-row" data-key="puerta">
-            <input type="color" id="mp-puerta-color" value="#5a3a20" title="Color de la puerta">
-            <div class="mp-name">Puerta (marco)</div>
-            <select id="mp-puerta-texture" title="Textura de la puerta">
-              <option value="liso">Liso</option>
-              <option value="madera">Madera</option>
-              <option value="baldosa">Baldosa</option>
-              <option value="ladrillo">Ladrillo</option>
-              <option value="marmol">Mármol</option>
-              <option value="piedra">Piedra</option>
-            </select>
-          </div>
-
-          <div class="mp-row" data-key="hueco">
-            <input type="color" id="mp-hueco-color" value="#2a2a2a" title="Color del interior del hueco">
-            <div class="mp-name">Hueco / Apertura vacía</div>
-            <select id="mp-hueco-texture" title="Textura del hueco">
-              <option value="liso">Liso</option>
-              <option value="madera">Madera</option>
-              <option value="baldosa">Baldosa</option>
-              <option value="ladrillo">Ladrillo</option>
-              <option value="marmol">Mármol</option>
-              <option value="piedra">Piedra</option>
-            </select>
-          </div>
-
-          <button type="button" id="mp-reset" class="mp-reset" title="Restablecer valores por defecto">
-            Restablecer
-          </button>
-        </div>
-      </details>
     </div>
   </aside>
 
   <div id="error" style="display:none">
     <h1>Error</h1>
     <p id="err-msg"></p>
+  </div>
+
+  <!-- Ventana flotante de selección de elemento -->
+  <div id="picker-popup" hidden>
+    <header class="pp-header">
+      <div>
+        <div class="pp-title" id="pp-title">Elemento</div>
+        <div class="pp-sub" id="pp-sub">—</div>
+      </div>
+      <button id="pp-close" type="button" aria-label="Cerrar">×</button>
+    </header>
+    <div class="pp-body" id="pp-body">
+      <!-- Se rellena dinámicamente con sub-filas Cara A / Cara B / Cara C -->
+    </div>
   </div>
 
   <script type="importmap">
