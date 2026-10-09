@@ -552,10 +552,125 @@ const apertureGroup = new THREE.Group(); // cristales de las ventanas
 const doorGroup = new THREE.Group(); // paneles de las puertas (dentro del hueco)
 const huecoGroup = new THREE.Group(); // paneles de los huecos (interior del agujero)
 
+// --- Defaults de elementos editables y panel de materiales ----------------
+// Cada elemento con presencia visible en 3D tiene 3 valores editables:
+//   - exterior  (la cara que da al exterior de la casa o al exterior
+//                de la apertura)
+//   - interior  (la cara que da al interior de la casa)
+//   - extrusion (el cuerpo solido que se ve dentro del hueco: marco de
+//                la puerta, panel del cristal, fondo del hueco)
+// Los elementos son:
+//   - Cada pared detectada (N, S, E, O + nombres para interiores)
+//   - Cada puerta individual (puerta-1, puerta-2, ...)
+//   - Cada ventana individual (ventana-1, ventana-2, ...)
+//   - Cada hueco individual (hueco-1, hueco-2, ...)
+// Ademas hay defaults globales para los elementos sin edicion individual.
+const MP_STORAGE = "vista3d-materials";
+const ELEMENT_DEFAULTS = {
+  wall: {
+    exterior: { color: "#d4c4a0", texture: "liso" },
+    interior: { color: "#f5ead2", texture: "liso" },
+    extrusion: { color: "#8b7355", texture: "liso" },
+  },
+  door: {
+    exterior: { color: "#5a3a20", texture: "madera" },
+    interior: { color: "#5a3a20", texture: "madera" },
+    extrusion: { color: "#3a2a18", texture: "liso" },
+  },
+  window: {
+    exterior: { color: "#b8d8f0", texture: "liso" },
+    interior: { color: "#b8d8f0", texture: "liso" },
+    extrusion: { color: "#9fc8e8", texture: "liso" },
+  },
+  hole: {
+    exterior: { color: "#1a1a1a", texture: "liso" },
+    interior: { color: "#1a1a1a", texture: "liso" },
+    extrusion: { color: "#0a0a0a", texture: "liso" },
+  },
+};
+const MP_GLOBALS = {
+  "suelo":        { color: "#c4a988", texture: "liso" },
+  "suelo-debajo": { color: "#6a5a48", texture: "liso" },
+};
+
+// --- Construir elementList, wallList, aperturaList -------------------------
+// Esta lista se construye ANTES del bucle de paredes, porque las aperturas
+// se identifican por id global (puerta-1, puerta-2, ventana-1, ...) y el
+// bucle de paredes reutiliza esas ids para registrar los meshes.
+const elementList = [];
+const wallList = [];
+const aperturaList = [];
+const _wallIdSet = new Set();
+
+// Paredes
+for (const info of paredesInfo) {
+  if (_wallIdSet.has(info.wall)) continue;
+  _wallIdSet.add(info.wall);
+  const niceName = { N: "Norte", S: "Sur", E: "Este", O: "Oeste" }[info.wall] || info.wall;
+  const w = {
+    tipo: "wall",
+    id: info.wall,
+    label: "Pared " + niceName,
+    wallLabel: "",
+    exterior: { ...ELEMENT_DEFAULTS.wall.exterior },
+    interior: { ...ELEMENT_DEFAULTS.wall.interior },
+    extrusion: { ...ELEMENT_DEFAULTS.wall.extrusion },
+  };
+  elementList.push(w);
+  wallList.push(w);
+}
+
+// Aperturas: las IDs se asignan una vez, en este orden (mismo orden que
+// recorre el bucle de paredes despues).
+let _doorCount = 0, _winCount = 0, _holeCount = 0;
+for (const info of paredesInfo) {
+  const wallNice = { N: "Norte", S: "Sur", E: "Este", O: "Oeste" }[info.wall] || info.wall;
+  for (const a of info.apertures) {
+    let ap;
+    const wallLabel = "Pared " + wallNice;
+    if (a.kind === "door") {
+      _doorCount++;
+      ap = { tipo: "door", id: "puerta-" + _doorCount, label: "Puerta " + _doorCount, wallId: info.wall, wallLabel,
+        exterior: { ...ELEMENT_DEFAULTS.door.exterior }, interior: { ...ELEMENT_DEFAULTS.door.interior }, extrusion: { ...ELEMENT_DEFAULTS.door.extrusion } };
+      a.aperturaId = ap.id;
+    } else if (a.kind === "window") {
+      _winCount++;
+      ap = { tipo: "window", id: "ventana-" + _winCount, label: "Ventana " + _winCount, wallId: info.wall, wallLabel,
+        exterior: { ...ELEMENT_DEFAULTS.window.exterior }, interior: { ...ELEMENT_DEFAULTS.window.interior }, extrusion: { ...ELEMENT_DEFAULTS.window.extrusion } };
+      a.aperturaId = ap.id;
+    } else {
+      _holeCount++;
+      ap = { tipo: "hole", id: "hueco-" + _holeCount, label: "Hueco " + _holeCount, wallId: info.wall, wallLabel,
+        exterior: { ...ELEMENT_DEFAULTS.hole.exterior }, interior: { ...ELEMENT_DEFAULTS.hole.interior }, extrusion: { ...ELEMENT_DEFAULTS.hole.extrusion } };
+      a.aperturaId = ap.id;
+    }
+    elementList.push(ap);
+    aperturaList.push(ap);
+  }
+}
+
 // Map rapido: id de pared -> sus meshes (para que el panel de materiales
 // pueda asignar color/textura por pared individual reasignando el array
 // de materiales del mesh).
 const wallMeshLookup = new Map(); // id + "_meshes" -> Mesh[]
+// Map rapido: id de apertura (puerta-1, ventana-1, ...) -> sus meshes
+const aperturaMeshLookup = new Map(); // aperturaId -> Mesh[]
+
+// --- Elementos editables: defaults y construccion de listas ----------------
+// Cada elemento con presencia visible en 3D tiene 3 valores editables:
+//   - exterior  (la cara que da al exterior de la casa o al exterior
+//                de la apertura)
+//   - interior  (la cara que da al interior de la casa)
+//   - extrusion (el cuerpo solido que se ve dentro del hueco: marco de
+//                la puerta, panel del cristal, fondo del hueco)
+// Los elementos son:
+//   - Cada pared detectada (N, S, E, O + nombres para interiores)
+//   - Cada puerta individual (puerta-1, puerta-2, ...)
+//   - Cada ventana individual (ventana-1, ventana-2, ...)
+//   - Cada hueco individual (hueco-1, hueco-2, ...)
+// Ademas hay defaults globales para los elementos sin edicion individual.
+// (ELEMENT_DEFAULTS, MP_GLOBALS y MP_STORAGE estan declarados arriba,
+//  antes del bucle de paredes, para evitar problemas de TDZ.)
 
 for (const info of paredesInfo) {
   const meshes = buildWallMesh(info.seg[0], info.seg[1], info.apertures);
@@ -578,11 +693,15 @@ for (const info of paredesInfo) {
   // Renderizar SOLO los cristales de las ventanas (no las puertas).
   // Las puertas dejan el hueco vacio para que se vea el interior/exterior.
   const [[x1, z1], [x2, z2]] = info.seg;
-  const angle = Math.atan2(z2 - z1, x2 - x1);
+  const angle = Math.atan2(z2 - z1, x2 - z1);
   const len = info.len;
   const midX = (x1 + x2) / 2 + widthCm / 2;
   const midZ = (z1 + z2) / 2 + heightCm / 2;
+  // Las IDs de las aperturas se asignan arriba (en la construccion de
+  // elementList) para que coincidan entre el panel UI y los meshes.
+  // Aqui solo las reutilizamos: `a.aperturaId` ya esta definido.
   for (const a of info.apertures) {
+    const aperturaId = a.aperturaId;
     const cx = a.xCm + a.widthCm / 2 - len / 2;
     const cy = a.yCm + a.heightCm / 2;
     // 1) Panel de "hueco" (interior del agujero): un rectangulo fino en el
@@ -599,6 +718,8 @@ for (const info of paredesInfo) {
     // 2) Si es ventana: panel fino de cristal semitransparente.
     if (a.kind === "window") {
       const mat = cristalMat.clone();
+      // Guardar referencia del mesh de esta ventana por id unica
+      // para que el panel pueda cambiar color/textura individualmente.
       const geom = new THREE.BoxGeometry(a.widthCm, a.heightCm, 2);
       geom.translate(0, cy, 0);
       geom.rotateY(-angle);
@@ -607,6 +728,11 @@ for (const info of paredesInfo) {
       m.castShadow = true;
       m.receiveShadow = true;
       apertureGroup.add(m);
+      // Lookup mesh de esta apertura individual
+      if (typeof aperturaMeshLookup !== "undefined" && aperturaMeshLookup) {
+        if (!aperturaMeshLookup.has(aperturaId)) aperturaMeshLookup.set(aperturaId, []);
+        aperturaMeshLookup.get(aperturaId).push(m);
+      }
     }
     // 3) Si es puerta: panel de la puerta (dentro del hueco, tapando el
     //    "agujero" para que parezca una puerta cerrada).
@@ -622,6 +748,10 @@ for (const info of paredesInfo) {
       m.castShadow = true;
       m.receiveShadow = true;
       doorGroup.add(m);
+      if (typeof aperturaMeshLookup !== "undefined" && aperturaMeshLookup) {
+        if (!aperturaMeshLookup.has(aperturaId)) aperturaMeshLookup.set(aperturaId, []);
+        aperturaMeshLookup.get(aperturaId).push(m);
+      }
     }
   }
 }
@@ -700,43 +830,18 @@ function syncStageSize() {
 }
 
 // --- Panel de materiales (UI en el sidebar del visor) ---------------------
-// Permite cambiar color y textura de suelo, paredes (fachada+interior por
-// cada pared), cristal, puerta y hueco SIN recargar. Los cambios se
-// persisten en localStorage y se aplican en vivo al material del mesh.
-const MP_STORAGE = "vista3d-materials";
-const MP_DEFAULTS_GLOBAL = {
-  "suelo":        { color: "#c4a988", texture: "liso" },
-  "suelo-debajo": { color: "#6a5a48", texture: "liso" },
-  "cristal":      { color: "#b8d8f0", texture: "liso" },
-  "puerta":       { color: "#5a3a20", texture: "madera" },
-  "hueco":        { color: "#1a1a1a", texture: "liso" },
-  "pared-default-ext": { color: "#d4c4a0", texture: "liso" },
-  "pared-default-int": { color: "#f5ead2", texture: "liso" },
-};
+// Las listas elementList, wallList, aperturaList y los defaults
+// (ELEMENT_DEFAULTS, MP_GLOBALS) se construyen arriba, justo antes del
+// bucle de paredes, para que las IDs de las aperturas coincidan con los
+// meshes que se registran despues.
+// Aqui solo construimos el mapa plano MP_DEFAULTS y la UI.
 
-// Lista de paredes detectadas: N/S/E/O para exteriores.
-const wallList = [];
-const wallIdSet = new Set();
-for (const info of paredesInfo) {
-  if (wallIdSet.has(info.wall)) continue;
-  wallIdSet.add(info.wall);
-  const niceName = { N: "Norte", S: "Sur", E: "Este", O: "Oeste" }[info.wall] || info.wall;
-  wallList.push({
-    id: info.wall,
-    label: niceName,
-    defaultExt: { color: "#d4c4a0", texture: "liso" },
-    defaultInt: { color: "#f5ead2", texture: "liso" },
-  });
+const MP_DEFAULTS = { ...MP_GLOBALS };
+for (const e of elementList) {
+  MP_DEFAULTS[e.tipo + ":" + e.id + ":exterior"] = e.exterior;
+  MP_DEFAULTS[e.tipo + ":" + e.id + ":interior"] = e.interior;
+  MP_DEFAULTS[e.tipo + ":" + e.id + ":extrusion"] = e.extrusion;
 }
-
-// Construir el mapa de defaults: para cada pared, tres keys (ext, int, apertura).
-const MP_DEFAULTS = { ...MP_DEFAULTS_GLOBAL };
-for (const w of wallList) {
-  MP_DEFAULTS["wall-ext:" + w.id] = w.defaultExt;
-  MP_DEFAULTS["wall-int:" + w.id] = w.defaultInt;
-  MP_DEFAULTS["wall-apertura:" + w.id] = { color: MP_DEFAULTS_GLOBAL.puerta.color, texture: MP_DEFAULTS_GLOBAL.puerta.texture };
-}
-MP_DEFAULTS["pared-default-apertura"] = { color: MP_DEFAULTS_GLOBAL.puerta.color, texture: MP_DEFAULTS_GLOBAL.puerta.texture };
 const MP_KEYS = Object.keys(MP_DEFAULTS);
 
 function loadMP() {
@@ -783,52 +888,77 @@ function applyMatFromCfg(mat, cfg, opts) {
 }
 
 // Aplica el material de un key al mesh/grupo correspondiente.
+// Las keys pueden ser:
+//   - "suelo" o "suelo-debajo" (globales)
+//   - "{tipo}:{id}:{face}" donde tipo = wall/door/window/hole, face =
+//     exterior/interior/extrusion
 function applyMPToMesh(key, cfg) {
   if (key === "suelo") {
     applyMatFromCfg(sueloMat, cfg, { roughness: 0.85 });
-  } else if (key === "suelo-debajo") {
+    return;
+  }
+  if (key === "suelo-debajo") {
     applyMatFromCfg(sueloDebajoMat, cfg, { roughness: 0.85 });
-  } else if (key === "cristal") {
-    applyMatFromCfg(cristalMat, cfg, { roughness: 0.15, transparent: true, opacity: 0.55 });
-  } else if (key === "puerta") {
-    applyMatFromCfg(puertaMat, cfg, { roughness: 0.7 });
-  } else if (key === "hueco") {
-    applyMatFromCfg(huecoMat, cfg, { roughness: 0.95 });
-  } else if (key === "pared-default-ext") {
-    applyMatFromCfg(paredExtMat, cfg, { roughness: 0.9 });
-    applyWallsDefault();
-  } else if (key === "pared-default-int") {
-    applyMatFromCfg(paredIntMat, cfg, { roughness: 0.9 });
-    applyWallsDefault();
-  } else if (key.startsWith("wall-ext:")) {
-    const wallId = key.slice("wall-ext:".length);
-    const meshes = wallMeshLookup.get(wallId + "_meshes") || [];
+    return;
+  }
+  // Keys con formato {tipo}:{id}:{face}
+  const parts = key.split(":");
+  if (parts.length !== 3) return;
+  const [tipo, id, face] = parts;
+  if (tipo === "wall") {
+    const meshes = wallMeshLookup.get(id + "_meshes") || [];
     for (const mesh of meshes) {
-      // Disponer los materiales de fachada (slots 0 y 2) y crear nuevos
-      // completos. Es la unica forma de que Three.js suba el `map` a
-      // la GPU cuando se cambia la textura en un mesh con array.
-      const wMat = makeMaterial({ color: hexToInt(cfg.color), texture: cfg.texture, roughness: 0.9 });
-      if (Array.isArray(mesh.material)) {
-        if (mesh.material[0]) mesh.material[0].dispose();
-        if (mesh.material[2]) mesh.material[2].dispose();
+      if (face === "exterior") {
+        // Fachada (slots 0 y 2). Slot 2 (laterales) sigue siendo fachada.
+        const wMat = makeMaterial({ color: hexToInt(cfg.color), texture: cfg.texture, roughness: 0.9 });
+        if (Array.isArray(mesh.material)) {
+          if (mesh.material[0]) mesh.material[0].dispose();
+          if (mesh.material[2]) mesh.material[2].dispose();
+        }
+        mesh.material = [wMat, mesh.material[1] || paredIntMat, wMat];
+      } else if (face === "interior") {
+        const wMat = makeMaterial({ color: hexToInt(cfg.color), texture: cfg.texture, roughness: 0.9 });
+        if (Array.isArray(mesh.material) && mesh.material[1]) mesh.material[1].dispose();
+        mesh.material = [mesh.material[0] || paredExtMat, wMat, mesh.material[2] || paredExtMat];
+      } else if (face === "extrusion") {
+        // La extrusión de la pared es el fondo del hueco. Reaplica hueco
+        // general (mismo material compartido con todos los huecos).
+        // (No se representa en el mesh de la pared sino en el panel del
+        //  hueco, asi que se ignora aqui o se redirige a huecoMat.)
+        // Lo dejamos vacio: las paredes no tienen "extrusion" visible
+        // salvo que tengan aperturas (que tienen su propio elemento).
       }
-      // Reasignar el array entero: slot 0 (fachada), 1 (interior, intacto), 2 (sides).
-      mesh.material = [wMat, mesh.material[1] || paredIntMat, wMat];
     }
-  } else if (key.startsWith("wall-int:")) {
-    const wallId = key.slice("wall-int:".length);
-    const meshes = wallMeshLookup.get(wallId + "_meshes") || [];
+    return;
+  }
+  if (tipo === "door" || tipo === "window" || tipo === "hole") {
+    const meshes = aperturaMeshLookup.get(id) || [];
     for (const mesh of meshes) {
-      // Misma idea: crear material nuevo y reasignar el array.
-      const wMat = makeMaterial({ color: hexToInt(cfg.color), texture: cfg.texture, roughness: 0.9 });
-      if (Array.isArray(mesh.material) && mesh.material[1]) {
-        mesh.material[1].dispose();
+      // Cada apertura tiene UN mesh, no array. Aplicar color/textura directo.
+      const hasTexture = cfg.texture && cfg.texture !== "liso";
+      if (hasTexture) {
+        mesh.material.color.setHex(0xffffff);
+        mesh.material.map = getTexture(cfg.texture, cfg.color);
+      } else {
+        mesh.material.color.setHex(hexToInt(cfg.color));
+        mesh.material.map = null;
       }
-      mesh.material = [mesh.material[0] || paredExtMat, wMat, mesh.material[2] || paredExtMat];
+      if (tipo === "window") {
+        mesh.material.roughness = 0.15;
+        mesh.material.transparent = true;
+        mesh.material.opacity = 0.55;
+      } else if (tipo === "door") {
+        mesh.material.roughness = 0.7;
+        mesh.material.transparent = false;
+        mesh.material.opacity = 1;
+      } else {
+        mesh.material.roughness = 0.95;
+        mesh.material.transparent = false;
+        mesh.material.opacity = 1;
+      }
+      mesh.material.needsUpdate = true;
     }
-  } else if (key.startsWith("wall-apertura:") || key === "pared-default-apertura" || key === "puerta") {
-    // Cambia el material de las PUERTAS de esta pared (o global).
-    applyMatFromCfg(puertaMat, cfg, { roughness: 0.7 });
+    return;
   }
 }
 
@@ -842,8 +972,9 @@ function applyWallsDefault() {
   apply(interiorGroup);
 }
 
-// Construir la UI del panel de paredes en el sidebar.
-// Cada pared tiene 2 sub-filas: Fachada y Interior.
+// Construir la UI del panel en el sidebar del visor.
+// Estructura: cada elemento con presencia 3D tiene un bloque con 3 sub-filas:
+// exterior / interior / extrusion.
 const wallsListEl = document.getElementById("mp-walls-list");
 function makeSelect(id, defaultVal) {
   const opts = ["liso", "madera", "baldosa", "ladrillo", "marmol", "piedra"]
@@ -851,58 +982,39 @@ function makeSelect(id, defaultVal) {
       t === "liso" ? "Liso" : t === "madera" ? "Madera" : t === "baldosa" ? "Baldosa"
       : t === "ladrillo" ? "Ladrillo" : t === "marmol" ? "Mármol" : "Piedra"
     }</option>`).join("");
-  return `<select class="mp-wall-tex" data-pid="${id}" title="Textura">
+  return `<select class="mp-tex" data-pid="${id}" title="Textura">
     ${opts}
   </select>`;
 }
+function makeRow(key, label, color, texture) {
+  return `
+    <div class="mp-row" data-key="${key}">
+      <input type="color" class="mp-color" data-pid="${key}" value="${color}" title="Color">
+      <div class="mp-name">${label}</div>
+      ${makeSelect(key, texture)}
+    </div>`;
+}
 if (wallsListEl) {
-  for (const w of wallList) {
+  for (const e of elementList) {
     const block = document.createElement("div");
-    block.className = "mp-wall-block";
+    block.className = "mp-element-block";
     block.style.marginTop = "10px";
+    const sub = e.tipo === "wall"
+      ? `<div class="mp-name" style="font-size:10px;color:#7a8190;margin-bottom:2px;">${e.wallLabel || ""}</div>`
+      : `<div class="mp-name" style="font-size:10px;color:#7a8190;margin-bottom:2px;">${e.wallLabel || ""}</div>`;
     block.innerHTML = `
-      <div class="mp-name" style="font-size:11px;color:#5a6171;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;font-weight:700;">Pared ${w.label}</div>
-      <div class="mp-row" data-key="wall-ext:${w.id}">
-        <input type="color" class="mp-wall-ext-color" data-pid="${w.id}" value="${w.defaultExt.color}" title="Color de la fachada exterior">
-        <div class="mp-name">Exterior (fachada)</div>
-        ${makeSelect("wall-ext:" + w.id, w.defaultExt.texture)}
-      </div>
-      <div class="mp-row" data-key="wall-int:${w.id}">
-        <input type="color" class="mp-wall-int-color" data-pid="${w.id}" value="${w.defaultInt.color}" title="Color del interior de la pared">
-        <div class="mp-name">Interior (pintura)</div>
-        ${makeSelect("wall-int:" + w.id, w.defaultInt.texture)}
-      </div>
-      <div class="mp-row" data-key="wall-apertura:${w.id}">
-        <input type="color" class="mp-wall-apertura-color" data-pid="${w.id}" value="${MP_DEFAULTS.puerta.color}" title="Color de la extrusion (puerta) de esta pared">
-        <div class="mp-name">Extrusión (puerta)</div>
-        ${makeSelect("wall-apertura:" + w.id, MP_DEFAULTS.puerta.texture)}
-      </div>`;
+      <div class="mp-name" style="font-size:11px;color:#5a6171;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;font-weight:700;">${e.label}</div>
+      ${sub}
+      ${makeRow(e.tipo + ":" + e.id + ":exterior", "Exterior", e.exterior.color, e.exterior.texture)}
+      ${makeRow(e.tipo + ":" + e.id + ":interior", "Interior", e.interior.color, e.interior.texture)}
+      ${makeRow(e.tipo + ":" + e.id + ":extrusion", "Extrusión", e.extrusion.color, e.extrusion.texture)}`;
     wallsListEl.appendChild(block);
   }
-  // Fila de defaults al final: "Resto de fachadas", "interiores" y "extrusiones".
-  const defBlock = document.createElement("div");
-  defBlock.style.marginTop = "10px";
-  defBlock.innerHTML = `
-    <div class="mp-name" style="font-size:11px;color:#5a6171;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;font-weight:700;">Por defecto (sin pared individual)</div>
-    <div class="mp-row" data-key="pared-default-ext">
-      <input type="color" id="mp-pared-default-ext-color" value="${MP_DEFAULTS["pared-default-ext"].color}" title="Color por defecto de fachadas">
-      <div class="mp-name">Fachada por defecto</div>
-      ${makeSelect("pared-default-ext", MP_DEFAULTS["pared-default-ext"].texture)}
-    </div>
-    <div class="mp-row" data-key="pared-default-int">
-      <input type="color" id="mp-pared-default-int-color" value="${MP_DEFAULTS["pared-default-int"].color}" title="Color por defecto de interiores">
-      <div class="mp-name">Interior por defecto</div>
-      ${makeSelect("pared-default-int", MP_DEFAULTS["pared-default-int"].texture)}
-    </div>
-    <div class="mp-row" data-key="pared-default-apertura">
-      <input type="color" id="mp-pared-default-apertura-color" value="${MP_DEFAULTS.puerta.color}" title="Color por defecto de la extrusión">
-      <div class="mp-name">Extrusión por defecto</div>
-      ${makeSelect("pared-default-apertura", MP_DEFAULTS.puerta.texture)}
-    </div>`;
-  wallsListEl.appendChild(defBlock);
 }
 
-// Vincular listeners. Sin swatch: el color picker ya muestra el color actual.
+// Vincular listeners. Cada fila tiene un color picker y un selector de
+// textura. Las keys tienen el formato "{tipo}:{id}:{face}" o "suelo" o
+// "suelo-debajo" para los globales.
 const mp = loadMP();
 function bindRow(key, colorEl, texEl) {
   if (colorEl) {
@@ -923,21 +1035,18 @@ function bindRow(key, colorEl, texEl) {
   }
 }
 
-// Paredes: exterior, interior y extrusion por cada una.
-for (const w of wallList) {
-  bindRow("wall-ext:" + w.id,
-    document.querySelector(`.mp-wall-ext-color[data-pid="${w.id}"]`),
-    document.querySelector(`.mp-wall-tex[data-pid="wall-ext:${w.id}"]`));
-  bindRow("wall-int:" + w.id,
-    document.querySelector(`.mp-wall-int-color[data-pid="${w.id}"]`),
-    document.querySelector(`.mp-wall-tex[data-pid="wall-int:${w.id}"]`));
-  bindRow("wall-apertura:" + w.id,
-    document.querySelector(`.mp-wall-apertura-color[data-pid="${w.id}"]`),
-    document.querySelector(`.mp-wall-tex[data-pid="wall-apertura:${w.id}"]`));
+// Vincular todas las filas: cada elemento tiene 3 sub-filas.
+for (const e of elementList) {
+  for (const face of ["exterior", "interior", "extrusion"]) {
+    const k = e.tipo + ":" + e.id + ":" + face;
+    bindRow(k,
+      document.querySelector(`.mp-color[data-pid="${k}"]`),
+      document.querySelector(`.mp-tex[data-pid="${k}"]`));
+  }
 }
 
-// Filas globales: suelo, suelo-debajo, cristal, puerta, hueco, defaults.
-for (const key of ["suelo", "suelo-debajo", "cristal", "puerta", "hueco", "pared-default-ext", "pared-default-int", "pared-default-apertura"]) {
+// Globales: suelo y suelo-debajo.
+for (const key of ["suelo", "suelo-debajo"]) {
   bindRow(key,
     document.getElementById("mp-" + key + "-color"),
     document.getElementById("mp-" + key + "-texture"));
@@ -948,17 +1057,18 @@ document.getElementById("mp-reset")?.addEventListener("click", () => {
   for (const key of MP_KEYS) {
     mp[key] = { ...MP_DEFAULTS[key] };
   }
-  for (const w of wallList) {
-    for (const face of ["ext", "int", "apertura"]) {
-      const k = `wall-${face}:${w.id}`;
-      const c = document.querySelector(`.mp-wall-${face}-color[data-pid="${w.id}"]`);
-      const t = document.querySelector(`.mp-wall-tex[data-pid="wall-${face}:${w.id}"]`);
+  // Actualizar todos los inputs (incluidos los de los elementos individuales)
+  for (const e of elementList) {
+    for (const face of ["exterior", "interior", "extrusion"]) {
+      const k = e.tipo + ":" + e.id + ":" + face;
+      const c = document.querySelector(`.mp-color[data-pid="${k}"]`);
+      const t = document.querySelector(`.mp-tex[data-pid="${k}"]`);
       if (c) c.value = mp[k].color;
       if (t) t.value = mp[k].texture;
       applyMPToMesh(k, mp[k]);
     }
   }
-  for (const key of ["suelo", "suelo-debajo", "cristal", "puerta", "hueco", "pared-default-ext", "pared-default-int", "pared-default-apertura"]) {
+  for (const key of ["suelo", "suelo-debajo"]) {
     const c = document.getElementById("mp-" + key + "-color");
     const t = document.getElementById("mp-" + key + "-texture");
     if (c) c.value = mp[key].color;
