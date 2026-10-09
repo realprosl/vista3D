@@ -254,14 +254,17 @@ const interiorWalls = interiorSegments.map(seg => {
 });
 
 function buildWallMesh([x1, z1], [x2, z2], apertures = []) {
-  // Construye una pared 3D entre (x1,z1) y (x2,z2), con aperturas (huecos
-  // rectangulares) en la pared. Cada apertura es {xCm, widthCm, yCm,
-  // heightCm} en coords del alzado (xCm desde el inicio de la pared,
-  // yCm desde el suelo).
+  // Construye una pared 3D entre (x1,z1) y (x2,z2). Si hay aperturas
+  // (huecos rectangulares), la pared se extruye con esos huecos como
+  // "holes" del Shape 2D: asi el hueco esta VACIO y se ve desde
+  // cualquier lado, no solo desde una cara.
   //
-  // Devuelve un array de meshes: 1 segmento por cada hueco entre
-  // aperturas + las aperturas mismas (puerta/ventana) renderizadas
-  // como paneles finos en su zona.
+  // Cada apertura es {xCm, widthCm, yCm, heightCm} en coords del alzado
+  // (xCm desde el inicio de la pared, yCm desde el suelo).
+  //
+  // Devuelve un array de meshes. Actualmente siempre es 0 o 1 mesh
+  // (la pared con sus huecos), pero devolvemos array para mantener
+  // la API consistente con la version previa.
   const dx = x2 - x1;
   const dz = z2 - z1;
   const len = Math.sqrt(dx * dx + dz * dz);
@@ -269,45 +272,54 @@ function buildWallMesh([x1, z1], [x2, z2], apertures = []) {
   const angle = Math.atan2(dz, dx);
   const midX = (x1 + x2) / 2 + widthCm / 2;
   const midZ = (z1 + z2) / 2 + heightCm / 2;
-  const meshes = [];
 
-  // Calcular los segmentos solidos de la pared.
-  // Cada apertura genera 2 cortes en la pared: [xCm, xCm+widthCm].
-  // Ordenamos y creamos N+1 segmentos: [0..a1], [a1..a2], ..., [aN..len].
-  const cortes = [];
+  // Shape 2D: rectangulo de la pared (largo x alto), centrado en el origen
+  // sobre el plano XY. El grosor va a ser la profundidad de la extrusión.
+  const shape = new THREE.Shape();
+  shape.moveTo(-len / 2, 0);
+  shape.lineTo(len / 2, 0);
+  shape.lineTo(len / 2, alturaCm);
+  shape.lineTo(-len / 2, alturaCm);
+  shape.closePath();
+
+  // Cada apertura se traduce a un "hole" en el shape (en coords locales
+  // del shape: x desde -len/2 hasta +len/2, y desde 0 hasta alturaCm).
   for (const a of apertures) {
-    if (a.xCm > 0 && a.xCm < len) cortes.push(a.xCm);
-    if (a.xCm + a.widthCm > 0 && a.xCm + a.widthCm < len) cortes.push(a.xCm + a.widthCm);
-  }
-  cortes.sort((a, b) => a - b);
-  // Eliminar duplicados.
-  const cortesUnicos = [];
-  for (const c of cortes) {
-    if (cortesUnicos.length === 0 || c - cortesUnicos[cortesUnicos.length - 1] > 0.5) {
-      cortesUnicos.push(c);
+    const x0 = a.xCm - len / 2;
+    const x1a = a.xCm + a.widthCm - len / 2;
+    const y0 = a.yCm;
+    const y1a = a.yCm + a.heightCm;
+    if (x0 < -len / 2 || x1a > len / 2 || y0 < 0 || y1a > alturaCm) {
+      // Apertura fuera de la pared: la ignoramos para no romper la extrusión.
+      continue;
     }
+    const hole = new THREE.Path();
+    hole.moveTo(x0, y0);
+    hole.lineTo(x1a, y0);
+    hole.lineTo(x1a, y1a);
+    hole.lineTo(x0, y1a);
+    hole.closePath();
+    shape.holes.push(hole);
   }
-  const segmentos = [];
-  let prev = 0;
-  for (const c of cortesUnicos) {
-    if (c - prev > 0.5) segmentos.push([prev, c]);
-    prev = c;
-  }
-  if (len - prev > 0.5) segmentos.push([prev, len]);
 
-  for (const [a, b] of segmentos) {
-    const segLen = b - a;
-    const segCenterLocal = (a + b) / 2 - len / 2; // en coords locales del box
-    const geom = new THREE.BoxGeometry(segLen, alturaCm, grosorCm);
-    geom.translate(0, alturaCm / 2, 0);
-    geom.rotateY(-angle);
-    geom.translate(midX + segCenterLocal * Math.cos(angle), 0, midZ + segCenterLocal * Math.sin(angle));
-    const m = new THREE.Mesh(geom, paredMat);
-    m.castShadow = true;
-    m.receiveShadow = true;
-    meshes.push(m);
-  }
-  return meshes;
+  // Extruir en el eje Z (grosor).
+  const geom = new THREE.ExtrudeGeometry(shape, {
+    depth: grosorCm,
+    bevelEnabled: false,
+  });
+  // Centrar la extrusión en Z (grosor) para que la mitad quede a cada lado.
+  geom.translate(0, 0, -grosorCm / 2);
+  // Rotar para que el Shape (originalmente en plano XY) se situe con su
+  // eje X a lo largo del segmento de la pared y su normal en el eje Y
+  // original del segmento (es decir, perpendicular a la pared).
+  geom.rotateY(-angle);
+  // Posicionar el centro de la pared en el lugar correcto del mundo.
+  geom.translate(midX, 0, midZ);
+
+  const m = new THREE.Mesh(geom, paredMat);
+  m.castShadow = true;
+  m.receiveShadow = true;
+  return [m];
 }
 
 // --- 6a) Emparejar alzados con paredes -------------------------------------
@@ -363,25 +375,32 @@ for (const seg of exteriorWalls) {
 }
 
 // --- 6b) Construir meshes de pared (con aperturas) -------------------------
-const apertureGroup = new THREE.Group(); // puertas y ventanas (rellenos)
+// Las paredes se renderizan con sus aperturas como "holes" del Shape 2D
+// (ver buildWallMesh), asi el hueco esta VACIO y se ve desde cualquier
+// lado. Para las ventanas (cristal semitransparente) anadimos ademas un
+// panel fino en el hueco para que se vea el color del cristal. Las
+// puertas no llevan panel: el hueco se ve vacio.
+const apertureGroup = new THREE.Group(); // solo los cristales de las ventanas
 for (const info of paredesInfo) {
   const meshes = buildWallMesh(info.seg[0], info.seg[1], info.apertures);
   for (const m of meshes) exteriorGroup.add(m);
-  // Renderizar las aperturas (puerta/ventana) dentro de los huecos.
+  // Renderizar SOLO los cristales de las ventanas (no las puertas).
+  // Las puertas dejan el hueco vacio para que se vea el interior/exterior.
   const [[x1, z1], [x2, z2]] = info.seg;
   const angle = Math.atan2(z2 - z1, x2 - x1);
   const len = info.len;
   const midX = (x1 + x2) / 2 + widthCm / 2;
   const midZ = (z1 + z2) / 2 + heightCm / 2;
   for (const a of info.apertures) {
-    // Material segun el tipo.
-    const mat = a.kind === "door"
-      ? new THREE.MeshStandardMaterial({ color: 0xffe8b0, roughness: 0.7, transparent: true, opacity: 0.85 })
-      : new THREE.MeshStandardMaterial({ color: 0xcce4ff, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.5 });
-    // El panel se coloca a xCm del inicio de la pared, centrado.
+    if (a.kind !== "window") continue; // puertas: hueco vacio, sin panel
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0xb8d8f0, roughness: 0.15, metalness: 0.2,
+      transparent: true, opacity: 0.55,
+    });
     const cx = a.xCm + a.widthCm / 2 - len / 2;
     const cy = a.yCm + a.heightCm / 2;
-    const geom = new THREE.BoxGeometry(a.widthCm, a.heightCm, grosorCm * 0.4);
+    // Panel fino (2cm) centrado en el plano de la pared.
+    const geom = new THREE.BoxGeometry(a.widthCm, a.heightCm, 2);
     geom.translate(0, cy, 0);
     geom.rotateY(-angle);
     geom.translate(midX + cx * Math.cos(angle), 0, midZ + cx * Math.sin(angle));
@@ -393,19 +412,25 @@ for (const info of paredesInfo) {
 }
 scene.add(apertureGroup);
 
-// --- 6c) Toggle de aperturas (puertas/ventanas) ---------------------------
+// --- 6c) Toggle de cristales de ventanas ----------------------------------
+// Las puertas siempre se ven (hueco vacio en la pared). El toggle solo
+// afecta a los cristales de las ventanas: si esta OFF, las ventanas se
+// ven como huecos vacios igual que las puertas; si esta ON, los
+// cristales aparecen.
 const toggleAperturesBtn = document.getElementById("toggle-apertures");
 if (toggleAperturesBtn) {
+  // El titulo refleja lo que hace realmente.
+  toggleAperturesBtn.title = "Mostrar u ocultar el cristal de las ventanas";
+  toggleAperturesBtn.querySelector("span").textContent = "Cristales ventanas";
   toggleAperturesBtn.addEventListener("click", () => {
     const isOn = toggleAperturesBtn.classList.toggle("on");
     apertureGroup.visible = isOn;
   });
 }
-// Si el proyecto tiene aperturas, lo activamos por defecto.
 if (apertureGroup.children.length === 0) {
   if (toggleAperturesBtn) {
     toggleAperturesBtn.style.opacity = "0.4";
-    toggleAperturesBtn.title = "Este proyecto no tiene aperturas";
+    toggleAperturesBtn.title = "Este proyecto no tiene ventanas con cristal";
     toggleAperturesBtn.disabled = true;
   }
 }
