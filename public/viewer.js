@@ -233,7 +233,10 @@ if (!renderer) {
 renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
-document.body.appendChild(renderer.domElement);
+// Adjuntar el canvas al contenedor #stage (no a body, para que el sidebar
+// pueda taparlo en pantallas pequenas).
+const stageEl = document.getElementById("stage") || document.body;
+stageEl.appendChild(renderer.domElement);
 
 // Luces
 scene.add(new THREE.AmbientLight(0xffffff, 0.6));
@@ -293,7 +296,7 @@ sueloGeom.rotateX(-Math.PI / 2);
 // sueloMat / paredMat / cristalMat se declaran con "let" aqui y se
 // reasignan mas abajo (seccion 5b). Por eso la creacion del suelo se
 // hace DESPUES, una vez que sueloMat ya tiene su material asignado.
-let sueloMat, sueloDebajoMat, paredMat, paredExtMat, paredIntMat, cristalMat;
+let sueloMat, sueloDebajoMat, paredMat, paredExtMat, paredIntMat, cristalMat, puertaMat, huecoMat;
 
 // --- 6) Construir paredes --------------------------------------------------
 // Cada pared es un BoxGeometry orientado a lo largo de un segmento 2D.
@@ -368,6 +371,8 @@ paredExtMat = makeMaterial({ color: hexToInt(matCfg.pared.color), texture: matCf
 paredIntMat = makeMaterial({ color: hexToInt(matCfg.pared.color), texture: matCfg.pared.texture, roughness: 0.9 });
 paredMat = paredExtMat; // alias para compatibilidad con codigo legacy
 cristalMat = makeMaterial({ color: hexToInt(matCfg.cristal.color), texture: matCfg.cristal.texture, roughness: 0.15, opacity: 0.55 });
+puertaMat = makeMaterial({ color: 0x5a3a20, texture: "madera", roughness: 0.7 });
+huecoMat = makeMaterial({ color: 0x1a1a1a, texture: "liso", roughness: 0.95, side: THREE.DoubleSide });
 
 // --- 5c) Construir el suelo (ahora que sueloMat ya tiene valor) ------------
 // Materiales por cara: el ExtrudeGeometry genera caras arriba (indice 0)
@@ -535,7 +540,9 @@ for (const seg of exteriorWalls) {
 // puertas no llevan panel: el hueco se ve vacio.
 const exteriorGroup = new THREE.Group(); // paredes exteriores (toggle)
 const interiorGroup = new THREE.Group(); // paredes interiores
-const apertureGroup = new THREE.Group(); // solo los cristales de las ventanas
+const apertureGroup = new THREE.Group(); // cristales de las ventanas
+const doorGroup = new THREE.Group(); // paneles de las puertas (dentro del hueco)
+const huecoGroup = new THREE.Group(); // paneles de los huecos (interior del agujero)
 
 // Map rapido: id de pared -> sus meshes (para que el panel de materiales
 // pueda asignar color/textura por pared individual reasignando el array
@@ -561,43 +568,71 @@ for (const info of paredesInfo) {
   const midX = (x1 + x2) / 2 + widthCm / 2;
   const midZ = (z1 + z2) / 2 + heightCm / 2;
   for (const a of info.apertures) {
-    if (a.kind !== "window") continue; // puertas: hueco vacio, sin panel
-    // Usamos el material configurado (incluye color + textura procedural).
-    const mat = cristalMat.clone();
     const cx = a.xCm + a.widthCm / 2 - len / 2;
     const cy = a.yCm + a.heightCm / 2;
-    // Panel fino (2cm) centrado en el plano de la pared.
-    const geom = new THREE.BoxGeometry(a.widthCm, a.heightCm, 2);
-    geom.translate(0, cy, 0);
-    geom.rotateY(-angle);
-    geom.translate(midX + cx * Math.cos(angle), 0, midZ + cx * Math.sin(angle));
-    const m = new THREE.Mesh(geom, mat);
-    m.castShadow = true;
-    m.receiveShadow = true;
-    apertureGroup.add(m);
+    // 1) Panel de "hueco" (interior del agujero): un rectangulo fino en el
+    //    centro de la pared que da sensacion de profundidad. Visible
+    //    siempre para puertas y ventanas; ayuda a ver el "agujero".
+    if (a.kind === "door" || a.kind === "window" || a.kind === "hole") {
+      const huecoGeom = new THREE.BoxGeometry(a.widthCm, a.heightCm, 0.5);
+      huecoGeom.translate(0, cy, 0);
+      huecoGeom.rotateY(-angle);
+      huecoGeom.translate(midX + cx * Math.cos(angle), 0, midZ + cx * Math.sin(angle));
+      const huecoMesh = new THREE.Mesh(huecoGeom, huecoMat);
+      huecoGroup.add(huecoMesh);
+    }
+    // 2) Si es ventana: panel fino de cristal semitransparente.
+    if (a.kind === "window") {
+      const mat = cristalMat.clone();
+      const geom = new THREE.BoxGeometry(a.widthCm, a.heightCm, 2);
+      geom.translate(0, cy, 0);
+      geom.rotateY(-angle);
+      geom.translate(midX + cx * Math.cos(angle), 0, midZ + cx * Math.sin(angle));
+      const m = new THREE.Mesh(geom, mat);
+      m.castShadow = true;
+      m.receiveShadow = true;
+      apertureGroup.add(m);
+    }
+    // 3) Si es puerta: panel de la puerta (dentro del hueco, tapando el
+    //    "agujero" para que parezca una puerta cerrada).
+    if (a.kind === "door") {
+      const mat = puertaMat;
+      // Grosor del panel de la puerta: 4cm. Altura: igual a la altura de
+      // la apertura. El "panel" es lo que parece la hoja de la puerta.
+      const geom = new THREE.BoxGeometry(a.widthCm * 0.92, a.heightCm * 0.98, 4);
+      geom.translate(0, cy - 1, 0); // ligero offset hacia abajo para marco
+      geom.rotateY(-angle);
+      geom.translate(midX + cx * Math.cos(angle), 0, midZ + cx * Math.sin(angle));
+      const m = new THREE.Mesh(geom, mat);
+      m.castShadow = true;
+      m.receiveShadow = true;
+      doorGroup.add(m);
+    }
   }
 }
 scene.add(apertureGroup);
+scene.add(doorGroup);
+scene.add(huecoGroup);
 
-// --- 6c) Toggle de cristales de ventanas ----------------------------------
-// Las puertas siempre se ven (hueco vacio en la pared). El toggle solo
-// afecta a los cristales de las ventanas: si esta OFF, las ventanas se
-// ven como huecos vacios igual que las puertas; si esta ON, los
-// cristales aparecen.
+// --- 6c) Toggle de aperturas (puertas + ventanas + huecos) ----------------
+// El boton del sidebar controla la visibilidad de TODOS los elementos que
+// estan dentro de los huecos: cristales de ventanas, paneles de puertas y
+// fondos de hueco. Cuando esta OFF, las aperturas se ven como simples
+// agujeros en la pared (Shape.holes).
 const toggleAperturesBtn = document.getElementById("toggle-apertures");
 if (toggleAperturesBtn) {
-  // El titulo refleja lo que hace realmente.
-  toggleAperturesBtn.title = "Mostrar u ocultar el cristal de las ventanas";
-  toggleAperturesBtn.querySelector("span").textContent = "Cristales ventanas";
+  toggleAperturesBtn.title = "Mostrar u ocultar puertas, ventanas y huecos";
   toggleAperturesBtn.addEventListener("click", () => {
     const isOn = toggleAperturesBtn.classList.toggle("on");
     apertureGroup.visible = isOn;
+    doorGroup.visible = isOn;
+    huecoGroup.visible = isOn;
   });
 }
-if (apertureGroup.children.length === 0) {
+if (apertureGroup.children.length === 0 && doorGroup.children.length === 0 && huecoGroup.children.length === 0) {
   if (toggleAperturesBtn) {
     toggleAperturesBtn.style.opacity = "0.4";
-    toggleAperturesBtn.title = "Este proyecto no tiene ventanas con cristal";
+    toggleAperturesBtn.title = "Este proyecto no tiene aperturas";
     toggleAperturesBtn.disabled = true;
   }
 }
@@ -631,39 +666,59 @@ function animate() {
 }
 animate();
 
-addEventListener("resize", () => {
-  camera.aspect = innerWidth / innerHeight;
+// Sidebar open/close: el tamano del canvas cambia cuando se abre/cierra.
+function resizeCanvas() {
+  const w = innerWidth;
+  const h = innerHeight;
+  camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight);
-});
+  renderer.setSize(w, h);
+}
+addEventListener("resize", resizeCanvas);
+// Re-resize al abrir/cerrar sidebar (porque la transicion CSS cambia el
+// ancho visible del stage via right: 320px).
+function syncStageSize() {
+  // Forzar un resize en el siguiente frame para que la transicion CSS
+  // ya haya recolocado el stage.
+  requestAnimationFrame(resizeCanvas);
+}
 
-// --- Panel de materiales (UI en el visor) ---------------------------------
-// Permite cambiar color y textura de suelo/pared/cristal SIN recargar.
-// Los cambios se persisten en localStorage y se aplican en vivo al material
-// del mesh correspondiente.
+// --- Panel de materiales (UI en el sidebar del visor) ---------------------
+// Permite cambiar color y textura de suelo, paredes (fachada+interior por
+// cada pared), cristal, puerta y hueco SIN recargar. Los cambios se
+// persisten en localStorage y se aplican en vivo al material del mesh.
 const MP_STORAGE = "vista3d-materials";
 const MP_DEFAULTS_GLOBAL = {
   "suelo":        { color: "#c4a988", texture: "liso" },
   "suelo-debajo": { color: "#6a5a48", texture: "liso" },
   "cristal":      { color: "#b8d8f0", texture: "liso" },
-  "pared-default": { color: "#d4c4a0", texture: "liso" },
+  "puerta":       { color: "#5a3a20", texture: "madera" },
+  "hueco":        { color: "#1a1a1a", texture: "liso" },
+  "pared-default-ext": { color: "#d4c4a0", texture: "liso" },
+  "pared-default-int": { color: "#f5ead2", texture: "liso" },
 };
 
-// Detectar paredes: para v0.6 listaremos solo las exteriores (N/S/E/O)
-// con la posibilidad de nombrar el cuarto. Cada pared se identifica por
-// su orientacion (N, S, E, O) y se le puede asignar un nombre opcional
-// (data-room en el SVG) que aparece como sufijo en el panel.
-const wallList = []; // { id, label, defaultCfg }
+// Lista de paredes detectadas: N/S/E/O para exteriores.
+const wallList = [];
 const wallIdSet = new Set();
 for (const info of paredesInfo) {
   if (wallIdSet.has(info.wall)) continue;
   wallIdSet.add(info.wall);
   const niceName = { N: "Norte", S: "Sur", E: "Este", O: "Oeste" }[info.wall] || info.wall;
-  wallList.push({ id: info.wall, label: `Pared ${niceName}`, defaultCfg: { color: "#d4c4a0", texture: "liso" } });
+  wallList.push({
+    id: info.wall,
+    label: niceName,
+    defaultExt: { color: "#d4c4a0", texture: "liso" },
+    defaultInt: { color: "#f5ead2", texture: "liso" },
+  });
 }
 
+// Construir el mapa de defaults: para cada pared, dos keys (ext e int).
 const MP_DEFAULTS = { ...MP_DEFAULTS_GLOBAL };
-for (const w of wallList) MP_DEFAULTS["wall:" + w.id] = w.defaultCfg;
+for (const w of wallList) {
+  MP_DEFAULTS["wall-ext:" + w.id] = w.defaultExt;
+  MP_DEFAULTS["wall-int:" + w.id] = w.defaultInt;
+}
 const MP_KEYS = Object.keys(MP_DEFAULTS);
 
 function loadMP() {
@@ -688,6 +743,8 @@ function hexToInt(hex) {
   if (typeof hex !== "string") return 0;
   return parseInt(hex.replace("#", ""), 16);
 }
+
+// Aplica el material de un key al mesh/grupo correspondiente.
 function applyMPToMesh(key, cfg) {
   if (key === "suelo") {
     sueloMat = makeMaterial({ color: hexToInt(cfg.color), texture: cfg.texture, roughness: 0.85 });
@@ -698,168 +755,197 @@ function applyMPToMesh(key, cfg) {
   } else if (key === "cristal") {
     cristalMat = makeMaterial({ color: hexToInt(cfg.color), texture: cfg.texture, roughness: 0.15, opacity: 0.55 });
     apertureGroup.traverse(o => { if (o.isMesh) o.material = cristalMat; });
-  } else if (key.startsWith("wall:")) {
-    // Color por pared individual. Reaplicamos como array de 2 materiales
-    // (fachada + interior) en los meshes de esa pared. La fachada usa el
-    // color elegido, el interior sigue con paredIntMat (pintura de la casa).
-    const wallId = key.slice("wall:".length);
+  } else if (key === "puerta") {
+    puertaMat = makeMaterial({ color: hexToInt(cfg.color), texture: cfg.texture, roughness: 0.7 });
+    doorGroup.traverse(o => { if (o.isMesh) o.material = puertaMat; });
+  } else if (key === "hueco") {
+    // El "hueco" es el lado interior del agujero (lo que se ve al asomarte
+    // desde fuera). Se renderiza como un panel fino en la profundidad de
+    // la pared. Usamos un material oscuro para simular el interior.
+    huecoMat = makeMaterial({ color: hexToInt(cfg.color), texture: cfg.texture, roughness: 0.95, side: THREE.DoubleSide });
+    huecoGroup.traverse(o => { if (o.isMesh) o.material = huecoMat; });
+  } else if (key === "pared-default-ext") {
+    // Si el usuario cambia el default de fachada, se aplica a las paredes
+    // que NO tienen un wall-ext individual. Para simplicidad lo aplicamos
+    // a paredExtMat (que es la fachada por defecto).
+    paredExtMat = makeMaterial({ color: hexToInt(cfg.color), texture: cfg.texture, roughness: 0.9 });
+    applyWallsDefault();
+  } else if (key === "pared-default-int") {
+    paredIntMat = makeMaterial({ color: hexToInt(cfg.color), texture: cfg.texture, roughness: 0.9 });
+    applyWallsDefault();
+  } else if (key.startsWith("wall-ext:")) {
+    const wallId = key.slice("wall-ext:".length);
+    const wMat = makeMaterial({ color: hexToInt(cfg.color), texture: cfg.texture, roughness: 0.9 });
+    // Reaplicar a los meshes de esta pared: la fachada (material[0]).
+    const meshes = wallMeshLookup.get(wallId + "_meshes") || [];
+    for (const mesh of meshes) {
+      // mesh.material puede ser un array [fachada, interior] o un material.
+      if (Array.isArray(mesh.material)) mesh.material[0] = wMat;
+      else mesh.material = [wMat, paredIntMat];
+    }
+  } else if (key.startsWith("wall-int:")) {
+    const wallId = key.slice("wall-int:".length);
     const wMat = makeMaterial({ color: hexToInt(cfg.color), texture: cfg.texture, roughness: 0.9 });
     const meshes = wallMeshLookup.get(wallId + "_meshes") || [];
-    for (const mesh of meshes) mesh.material = [wMat, paredIntMat];
-  } else if (key === "pared-default") {
-    // Si el usuario quiere un default para paredes sin color individual,
-    // se usa como fachada de las paredes. (Las paredes sin override
-    // individual siguen usando paredExtMat; esta opcion actualiza ese
-    // material para que las nuevas paredes lo hereden.)
-    paredExtMat = makeMaterial({ color: hexToInt(cfg.color), texture: cfg.texture, roughness: 0.9 });
-    const apply = (group) => group.traverse(o => {
-      if (o.isMesh) o.material = [paredExtMat, paredIntMat];
-    });
-    apply(exteriorGroup);
-    apply(interiorGroup);
+    for (const mesh of meshes) {
+      if (Array.isArray(mesh.material)) mesh.material[1] = wMat;
+      else mesh.material = [paredExtMat, wMat];
+    }
   }
 }
 
-// Renderizar la lista de paredes en el panel, una fila por pared.
+// Reaplica la fachada y el interior a TODAS las paredes (usado al cambiar
+// los defaults globales).
+function applyWallsDefault() {
+  const apply = (group) => group.traverse(o => {
+    if (o.isMesh) o.material = [paredExtMat, paredIntMat];
+  });
+  apply(exteriorGroup);
+  apply(interiorGroup);
+}
+
+// Construir la UI del panel de paredes en el sidebar.
+// Cada pared tiene 2 sub-filas: Fachada y Interior.
 const wallsListEl = document.getElementById("mp-walls-list");
-const wallSelect = (id) => `
-  <select class="mp-wall-tex" data-wall="${id}" title="Textura de la pared">
-    <option value="liso">Liso</option>
-    <option value="madera">Madera</option>
-    <option value="baldosa">Baldosa</option>
-    <option value="ladrillo">Ladrillo</option>
-    <option value="marmol">Mármol</option>
-    <option value="piedra">Piedra</option>
+function makeSelect(id, defaultVal) {
+  const opts = ["liso", "madera", "baldosa", "ladrillo", "marmol", "piedra"]
+    .map(t => `<option value="${t}"${t === defaultVal ? " selected" : ""}>${
+      t === "liso" ? "Liso" : t === "madera" ? "Madera" : t === "baldosa" ? "Baldosa"
+      : t === "ladrillo" ? "Ladrillo" : t === "marmol" ? "Mármol" : "Piedra"
+    }</option>`).join("");
+  return `<select class="mp-wall-tex" data-pid="${id}" title="Textura">
+    ${opts}
   </select>`;
+}
 if (wallsListEl) {
   for (const w of wallList) {
-    const row = document.createElement("div");
-    row.className = "mp-row";
-    row.dataset.key = "wall:" + w.id;
-    row.innerHTML = `
-      <div class="mp-swatch" id="mp-swatch-wall-${w.id}"></div>
-      <div class="mp-info">
-        <div class="mp-name">${w.label}</div>
-        <div class="mp-controls">
-          <input type="color" class="mp-wall-color" data-wall="${w.id}" value="${w.defaultCfg.color}" title="Color de la pared">
-          ${wallSelect(w.id)}
+    const block = document.createElement("div");
+    block.className = "mp-wall-block";
+    block.style.marginTop = "8px";
+    block.innerHTML = `
+      <div class="mp-name" style="font-size:11px;color:#5a6171;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Pared ${w.label}</div>
+      <div class="mp-row" data-key="wall-ext:${w.id}">
+        <div class="mp-swatch" id="mp-swatch-wall-ext-${w.id}"></div>
+        <div class="mp-info">
+          <div class="mp-name">Fachada (exterior)</div>
+          <div class="mp-controls">
+            <input type="color" class="mp-wall-ext-color" data-pid="${w.id}" value="${w.defaultExt.color}" title="Color de la fachada">
+            ${makeSelect("wall-ext:" + w.id, w.defaultExt.texture)}
+          </div>
+        </div>
+      </div>
+      <div class="mp-row" data-key="wall-int:${w.id}" style="margin-left:8px;">
+        <div class="mp-swatch" id="mp-swatch-wall-int-${w.id}"></div>
+        <div class="mp-info">
+          <div class="mp-name">Interior (pintura)</div>
+          <div class="mp-controls">
+            <input type="color" class="mp-wall-int-color" data-pid="${w.id}" value="${w.defaultInt.color}" title="Color del interior">
+            ${makeSelect("wall-int:" + w.id, w.defaultInt.texture)}
+          </div>
         </div>
       </div>`;
-    wallsListEl.appendChild(row);
+    wallsListEl.appendChild(block);
   }
-  // Fila extra: "todas las paredes" para poner un color por defecto a las
-  // paredes que no se editan individualmente.
-  const defRow = document.createElement("div");
-  defRow.className = "mp-row";
-  defRow.dataset.key = "pared-default";
-  defRow.innerHTML = `
-    <div class="mp-swatch" id="mp-swatch-pared-default"></div>
-    <div class="mp-info">
-      <div class="mp-name">Resto de paredes (default)</div>
-      <div class="mp-controls">
-        <input type="color" id="mp-pared-default-color" value="${MP_DEFAULTS["pared-default"].color}" title="Color por defecto de las paredes sin color individual">
-        <select id="mp-pared-default-texture" title="Textura por defecto">
-          <option value="liso">Liso</option>
-          <option value="madera">Madera</option>
-          <option value="baldosa">Baldosa</option>
-          <option value="ladrillo">Ladrillo</option>
-          <option value="marmol">Mármol</option>
-          <option value="piedra">Piedra</option>
-        </select>
+  // Fila de defaults al final: "Resto de fachadas" y "Resto de interiores"
+  const defBlock = document.createElement("div");
+  defBlock.style.marginTop = "8px";
+  defBlock.innerHTML = `
+    <div class="mp-name" style="font-size:11px;color:#5a6171;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Por defecto (sin pared individual)</div>
+    <div class="mp-row" data-key="pared-default-ext">
+      <div class="mp-swatch" id="mp-swatch-pared-default-ext"></div>
+      <div class="mp-info">
+        <div class="mp-name">Fachada por defecto</div>
+        <div class="mp-controls">
+          <input type="color" id="mp-pared-default-ext-color" value="${MP_DEFAULTS["pared-default-ext"].color}" title="Color por defecto de fachadas">
+          ${makeSelect("pared-default-ext", MP_DEFAULTS["pared-default-ext"].texture)}
+        </div>
+      </div>
+    </div>
+    <div class="mp-row" data-key="pared-default-int" style="margin-left:8px;">
+      <div class="mp-swatch" id="mp-swatch-pared-default-int"></div>
+      <div class="mp-info">
+        <div class="mp-name">Interior por defecto</div>
+        <div class="mp-controls">
+          <input type="color" id="mp-pared-default-int-color" value="${MP_DEFAULTS["pared-default-int"].color}" title="Color por defecto de interiores">
+          ${makeSelect("pared-default-int", MP_DEFAULTS["pared-default-int"].texture)}
+        </div>
       </div>
     </div>`;
-  wallsListEl.appendChild(defRow);
+  wallsListEl.appendChild(defBlock);
 }
 
-const mpBtn = document.getElementById("materials-toggle");
-const mpBody = document.getElementById("materials-body");
-if (mpBtn && mpBody) {
-  mpBtn.addEventListener("click", () => {
-    const isOpen = !mpBody.hidden;
-    mpBody.hidden = isOpen;
-    mpBtn.classList.toggle("on", !isOpen);
-  });
-  const mp = loadMP();
-  // Paredes individuales.
-  for (const w of wallList) {
-    const key = "wall:" + w.id;
-    const colorEl = document.querySelector(`.mp-wall-color[data-wall="${w.id}"]`);
-    const texEl = document.querySelector(`.mp-wall-tex[data-wall="${w.id}"]`);
-    const swatch = document.getElementById("mp-swatch-wall-" + w.id);
-    const update = () => { if (swatch) swatch.style.backgroundColor = mp[key].color; };
-    if (colorEl) {
-      colorEl.value = mp[key].color;
-      colorEl.addEventListener("input", () => {
-        mp[key].color = colorEl.value;
-        saveMP(mp);
-        update();
-        applyMPToMesh(key, mp[key]);
-      });
-    }
-    if (texEl) {
-      texEl.value = mp[key].texture;
-      texEl.addEventListener("change", () => {
-        mp[key].texture = texEl.value;
-        saveMP(mp);
-        applyMPToMesh(key, mp[key]);
-      });
-    }
-    update();
-  }
-  // Filas globales: suelo, suelo-debajo, cristal, pared-default.
-  for (const key of ["suelo", "suelo-debajo", "cristal", "pared-default"]) {
-    const colorEl = document.getElementById("mp-" + key + "-color");
-    const texEl = document.getElementById("mp-" + key + "-texture");
-    const swatch = document.getElementById("mp-swatch-" + key);
-    const update = () => { if (swatch) swatch.style.backgroundColor = mp[key].color; };
-    if (colorEl) {
-      colorEl.value = mp[key].color;
-      colorEl.addEventListener("input", () => {
-        mp[key].color = colorEl.value;
-        saveMP(mp);
-        update();
-        applyMPToMesh(key, mp[key]);
-      });
-    }
-    if (texEl) {
-      texEl.value = mp[key].texture;
-      texEl.addEventListener("change", () => {
-        mp[key].texture = texEl.value;
-        saveMP(mp);
-        applyMPToMesh(key, mp[key]);
-      });
-    }
-    update();
-  }
-  // Botón reset: limpia todas las configs (globales + paredes).
-  document.getElementById("mp-reset")?.addEventListener("click", () => {
-    for (const key of MP_KEYS) {
-      mp[key] = { ...MP_DEFAULTS[key] };
-    }
-    // Reset UI: paredes individuales.
-    for (const w of wallList) {
-      const key = "wall:" + w.id;
-      const colorEl = document.querySelector(`.mp-wall-color[data-wall="${w.id}"]`);
-      const texEl = document.querySelector(`.mp-wall-tex[data-wall="${w.id}"]`);
-      const swatch = document.getElementById("mp-swatch-wall-" + w.id);
-      if (colorEl) colorEl.value = mp[key].color;
-      if (texEl) texEl.value = mp[key].texture;
-      if (swatch) swatch.style.backgroundColor = mp[key].color;
+// Vincular listeners.
+const mp = loadMP();
+function bindRow(key, colorEl, texEl, swatch) {
+  const update = () => { if (swatch) swatch.style.backgroundColor = mp[key].color; };
+  if (colorEl) {
+    colorEl.value = mp[key].color;
+    colorEl.addEventListener("input", () => {
+      mp[key].color = colorEl.value;
+      saveMP(mp);
+      update();
       applyMPToMesh(key, mp[key]);
-    }
-    // Reset UI: globales.
-    for (const key of ["suelo", "suelo-debajo", "cristal", "pared-default"]) {
-      const colorEl = document.getElementById("mp-" + key + "-color");
-      const texEl = document.getElementById("mp-" + key + "-texture");
-      const swatch = document.getElementById("mp-swatch-" + key);
-      if (colorEl) colorEl.value = mp[key].color;
-      if (texEl) texEl.value = mp[key].texture;
-      if (swatch) swatch.style.backgroundColor = mp[key].color;
+    });
+  }
+  if (texEl) {
+    texEl.value = mp[key].texture;
+    texEl.addEventListener("change", () => {
+      mp[key].texture = texEl.value;
+      saveMP(mp);
       applyMPToMesh(key, mp[key]);
-    }
-    saveMP(mp);
-  });
+    });
+  }
+  update();
 }
+
+// Paredes: fachada e interior por cada una.
+for (const w of wallList) {
+  bindRow("wall-ext:" + w.id,
+    document.querySelector(`.mp-wall-ext-color[data-pid="${w.id}"]`),
+    document.querySelector(`.mp-wall-tex[data-pid="wall-ext:${w.id}"]`),
+    document.getElementById("mp-swatch-wall-ext-" + w.id));
+  bindRow("wall-int:" + w.id,
+    document.querySelector(`.mp-wall-int-color[data-pid="${w.id}"]`),
+    document.querySelector(`.mp-wall-tex[data-pid="wall-int:${w.id}"]`),
+    document.getElementById("mp-swatch-wall-int-" + w.id));
+}
+
+// Filas globales: suelo, suelo-debajo, cristal, puerta, hueco, defaults.
+for (const key of ["suelo", "suelo-debajo", "cristal", "puerta", "hueco", "pared-default-ext", "pared-default-int"]) {
+  bindRow(key,
+    document.getElementById("mp-" + key + "-color"),
+    document.getElementById("mp-" + key + "-texture"),
+    document.getElementById("mp-swatch-" + key));
+}
+
+// Boton reset: limpia TODAS las configs.
+document.getElementById("mp-reset")?.addEventListener("click", () => {
+  for (const key of MP_KEYS) {
+    mp[key] = { ...MP_DEFAULTS[key] };
+  }
+  for (const w of wallList) {
+    for (const face of ["ext", "int"]) {
+      const k = `wall-${face}:${w.id}`;
+      const c = document.querySelector(`.mp-wall-${face}-color[data-pid="${w.id}"]`);
+      const t = document.querySelector(`.mp-wall-tex[data-pid="wall-${face}:${w.id}"]`);
+      const s = document.getElementById(`mp-swatch-wall-${face}-${w.id}`);
+      if (c) c.value = mp[k].color;
+      if (t) t.value = mp[k].texture;
+      if (s) s.style.backgroundColor = mp[k].color;
+      applyMPToMesh(k, mp[k]);
+    }
+  }
+  for (const key of ["suelo", "suelo-debajo", "cristal", "puerta", "hueco", "pared-default-ext", "pared-default-int"]) {
+    const c = document.getElementById("mp-" + key + "-color");
+    const t = document.getElementById("mp-" + key + "-texture");
+    const s = document.getElementById("mp-swatch-" + key);
+    if (c) c.value = mp[key].color;
+    if (t) t.value = mp[key].texture;
+    if (s) s.style.backgroundColor = mp[key].color;
+    applyMPToMesh(key, mp[key]);
+  }
+  saveMP(mp);
+});
 
 // --- Helpers ---------------------------------------------------------------
 /**
@@ -956,3 +1042,21 @@ function parseRect(r) {
   const h = parseFloat(r.getAttribute("height") || "0");
   return [[x, y], [x + w, y], [x + w, y + h], [x, y + h], [x, y]];
 }
+
+// --- Sidebar open/close ----------------------------------------------------
+// El sidebar empieza abierto en desktop, cerrado en movil.
+function isMobile() { return innerWidth <= 720; }
+function openSidebar() {
+  document.body.classList.add("sidebar-open");
+  syncStageSize();
+}
+function closeSidebar() {
+  document.body.classList.remove("sidebar-open");
+  syncStageSize();
+}
+document.getElementById("sidebar-toggle")?.addEventListener("click", () => {
+  if (document.body.classList.contains("sidebar-open")) closeSidebar();
+  else openSidebar();
+});
+document.getElementById("sidebar-close")?.addEventListener("click", closeSidebar);
+if (!isMobile()) openSidebar();

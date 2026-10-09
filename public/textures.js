@@ -59,8 +59,8 @@ export function getTexture(kind, baseColor, w, h) {
   const ctx = canvas.getContext("2d");
 
   const baseHex = "#" + baseColor.toString(16).padStart(6, "0");
-  const lightHex = lighten(baseColor, 0.15);
-  const darkHex = darken(baseColor, 0.20);
+  const lightHex = hex(lighten(baseColor, 0.15));
+  const darkHex = hex(darken(baseColor, 0.20));
 
   switch (kind) {
     case "liso":
