@@ -94,7 +94,7 @@ export function parseElevation(svg: string): ElevationMeta {
 
   const wallWidthCm = wallWidthStr ? parseNumber(wallWidthStr) : null;
 
-  // Extraer todos los <rect> con sus atributos.
+  // Extraer todos los <rect> con sus atributos y clase.
   const rectRegex = /<rect\b([^>]*)\/?>/gi;
   const apertures: ElevationAperture[] = [];
   let m: RegExpExecArray | null;
@@ -105,32 +105,35 @@ export function parseElevation(svg: string): ElevationMeta {
       const a = attrs.match(r);
       return a ? a[1] : null;
     }
+    const cls = (attr("class") || "").toLowerCase();
     const x = parseNumber(attr("x") ?? "0");
     const y = parseNumber(attr("y") ?? "0");
     const w = parseNumber(attr("width") ?? "0");
     const h = parseNumber(attr("height") ?? "0");
     if (w === 0 || h === 0) continue;
-    // Filtro de exclusion: lineas de suelo/techo son <line>, no <rect>,
-    // asi que no aparecen aqui. Pero el rect del cristal de la ventana
-    // es valido y las dimensiones pueden ser pequenas (puerta 90x210,
-    // ventana 120x120); cualquier rect con w,h razonables se considera.
-    // Para excluir la "huella" del suelo o el techo (que nunca dibujariamos
-    // como rect, sino como line), no hace falta mas filtro.
+    // Saltar los <rect> ocultos (display:none) que se usan solo como metadata.
+    if (/display\s*:\s*none/.test(attrs)) continue;
 
-    const fill = (attr("fill") ?? "").toLowerCase();
-    const dataKind = attr("data-kind")?.toLowerCase();
-
+    // Determinar el tipo por la clase (.puerta / .ventana / .hueco).
     let kind: "door" | "window" | null = null;
-    if (dataKind === "door" || dataKind === "puerta") kind = "door";
-    else if (dataKind === "window" || dataKind === "ventana") kind = "window";
-    else if (fill === "#ffffff" || fill === "#fff" || fill === "white") kind = "door";
-    else if (fill === "#cce4ff") kind = "window";
-    else if (fill === "none") {
-      // <rect> con fill="none" y stroke grueso: lo tratamos como puerta
-      // si tiene proporciones verticales (h/w > 1.5). En caso contrario,
-      // ventana.
-      if (h / w > 1.5) kind = "door";
-      else if (h / w < 1.2) kind = "window";
+    if (cls.split(/\s+/).includes("puerta")) kind = "door";
+    else if (cls.split(/\s+/).includes("ventana")) kind = "window";
+    else if (cls.split(/\s+/).includes("hueco")) {
+      // Hueco generico: por la relacion de aspecto decidimos si es puerta
+      // (h/w > 1.5) o ventana (h/w < 1.2).
+      kind = h / w > 1.5 ? "door" : "window";
+    } else {
+      // Fallback legacy: detectar por fill o data-kind.
+      const fill = (attr("fill") ?? "").toLowerCase();
+      const dataKind = attr("data-kind")?.toLowerCase();
+      if (dataKind === "door" || dataKind === "puerta") kind = "door";
+      else if (dataKind === "window" || dataKind === "ventana") kind = "window";
+      else if (fill === "#ffffff" || fill === "#fff" || fill === "white") kind = "door";
+      else if (fill === "#cce4ff" || fill === "#b8d8f0") kind = "window";
+      else if (fill === "none") {
+        if (h / w > 1.5) kind = "door";
+        else if (h / w < 1.2) kind = "window";
+      }
     }
 
     if (kind) {
