@@ -511,7 +511,13 @@ function wallLength([x1, z1], [x2, z2]) {
 // interiores (muro entre habitaciones) se renderizan tambien.
 const paredesInfo = []; // Array<{ wall, seg, len, apertures, name, room, ... }>
 
-if (elementsData && elementsData.paredes && elementsData.paredes.length > 0) {
+// El modo nuevo (parser con data-id) solo se activa si al menos UNA
+// pared tiene data-name o data-room (atributos reales del SVG, no
+// autogenerados). Si no, fallback al sistema legacy (bounding box
+// + N/S/E/W) aunque el parser detecte paredes sin metadatos.
+const useNewParser = elementsData && elementsData.paredes
+  && elementsData.paredes.some(p => p.name || p.room);
+if (elementsData && elementsData.paredes && elementsData.paredes.length > 0 && useNewParser) {
   // --- MODO NUEVO: usar paredes del parser con data-id ---
   // Para cada pared del parser, calculamos su segmento (2 puntos del
   // contour) y buscamos aperturas en elementsData.alzados o

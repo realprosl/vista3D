@@ -1,13 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 900" width="1100" height="900">
   <path class="suelo" d="M 50 50 L 1050 50 L 1050 850 L 50 850 Z" fill="#c4a988" stroke="#8a6a48" stroke-width="3"/>
-  <line class="pared" x1="300" y1="50" x2="300" y2="450" stroke="#5a3a1a" stroke-width="3"/>
-  <line class="pared" x1="300" y1="450" x2="605" y2="450" stroke="#5a3a1a" stroke-width="3"/>
-  <line class="pared" x1="695" y1="450" x2="1050" y2="450" stroke="#5a3a1a" stroke-width="3"/>
-  <line class="pared" x1="900" y1="450" x2="900" y2="840" stroke="#5a3a1a" stroke-width="3"/>
-  <line class="pared" x1="900" y1="960" x2="900" y2="850" stroke="#5a3a1a" stroke-width="3"/>
-  <line class="pared" x1="900" y1="50" x2="900" y2="undefined" stroke="#5a3a1a" stroke-width="3"/>
-  <line class="pared" x1="900" y1="undefined" x2="900" y2="450" stroke="#5a3a1a" stroke-width="3"/>
+  <line class="pared" data-id="wall-h-300" data-name="Muro" data-group="wall" data-room=""
+        x1="300" y1="50" x2="300" y2="450" stroke="#5a3a1a" stroke-width="3"/>
+  <line class="pared" data-id="wall-v-450-a" data-name="Muro" data-group="wall" data-room=""
+        x1="300" y1="450" x2="605" y2="450" stroke="#5a3a1a" stroke-width="3"/>
+  <line class="pared" data-id="wall-v-450-b" data-name="Muro" data-group="wall" data-room=""
+        x1="695" y1="450" x2="1050" y2="450" stroke="#5a3a1a" stroke-width="3"/>
+  <line class="pared" data-id="wall-h-900-a" data-name="Muro" data-group="wall" data-room=""
+        x1="900" y1="450" x2="900" y2="840" stroke="#5a3a1a" stroke-width="3"/>
+  <line class="pared" data-id="wall-h-900-b" data-name="Muro" data-group="wall" data-room=""
+        x1="900" y1="960" x2="900" y2="850" stroke="#5a3a1a" stroke-width="3"/>
+  <line class="pared" data-id="wall-h-900-a" data-name="Muro" data-group="wall" data-room=""
+        x1="900" y1="50" x2="900" y2="undefined" stroke="#5a3a1a" stroke-width="3"/>
+  <line class="pared" data-id="wall-h-900-b" data-name="Muro" data-group="wall" data-room=""
+        x1="900" y1="undefined" x2="900" y2="450" stroke="#5a3a1a" stroke-width="3"/>
   
   <rect class="puerta" data-x="555" data-y="0" data-ancho="90" data-alto="210" style="display:none"/>
   <rect class="ventana" data-x="790" data-y="0" data-ancho="120" data-alto="120" style="display:none"/>

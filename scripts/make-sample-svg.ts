@@ -204,20 +204,26 @@ const ventanaAntepechoCm = 90;
   function segmentarH(x, y1, y2, hueco) {
     const out = [];
     if (hueco) {
-      out.push(`<line class="pared" x1="${x}" y1="${y1}" x2="${x}" y2="${hueco.y1}" stroke="#5a3a1a" stroke-width="3"/>`);
-      out.push(`<line class="pared" x1="${x}" y1="${hueco.y2}" x2="${x}" y2="${y2}" stroke="#5a3a1a" stroke-width="3"/>`);
+      out.push(`<line class="pared" data-id="wall-h-${x}-a" data-name="Muro" data-group="wall" data-room=""
+        x1="${x}" y1="${y1}" x2="${x}" y2="${hueco.y1}" stroke="#5a3a1a" stroke-width="3"/>`);
+      out.push(`<line class="pared" data-id="wall-h-${x}-b" data-name="Muro" data-group="wall" data-room=""
+        x1="${x}" y1="${hueco.y2}" x2="${x}" y2="${y2}" stroke="#5a3a1a" stroke-width="3"/>`);
     } else {
-      out.push(`<line class="pared" x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="#5a3a1a" stroke-width="3"/>`);
+      out.push(`<line class="pared" data-id="wall-h-${x}" data-name="Muro" data-group="wall" data-room=""
+        x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="#5a3a1a" stroke-width="3"/>`);
     }
     return out.join("\n  ");
   }
   function segmentarV(y, x1, x2, hueco) {
     const out = [];
     if (hueco) {
-      out.push(`<line class="pared" x1="${x1}" y1="${y}" x2="${hueco.x1}" y2="${y}" stroke="#5a3a1a" stroke-width="3"/>`);
-      out.push(`<line class="pared" x1="${hueco.x2}" y1="${y}" x2="${x2}" y2="${y}" stroke="#5a3a1a" stroke-width="3"/>`);
+      out.push(`<line class="pared" data-id="wall-v-${y}-a" data-name="Muro" data-group="wall" data-room=""
+        x1="${x1}" y1="${y}" x2="${hueco.x1}" y2="${y}" stroke="#5a3a1a" stroke-width="3"/>`);
+      out.push(`<line class="pared" data-id="wall-v-${y}-b" data-name="Muro" data-group="wall" data-room=""
+        x1="${hueco.x2}" y1="${y}" x2="${x2}" y2="${y}" stroke="#5a3a1a" stroke-width="3"/>`);
     } else {
-      out.push(`<line class="pared" x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="#5a3a1a" stroke-width="3"/>`);
+      out.push(`<line class="pared" data-id="wall-v-${y}" data-name="Muro" data-group="wall" data-room=""
+        x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="#5a3a1a" stroke-width="3"/>`);
     }
     return out.join("\n  ");
   }

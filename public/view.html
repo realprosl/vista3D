@@ -33,7 +33,7 @@
 
     /* Sidebar */
     #sidebar {
-      position: absolute; top: 0; right: 0; bottom: 0;
+      position: fixed; top: 0; right: 0; bottom: 0;
       width: 320px;
       max-width: 100vw;
       background: #f7f8fb;
@@ -44,6 +44,11 @@
       transition: transform 0.25s ease;
       z-index: 25;
       overflow: hidden;
+      /* iOS Safari: usar dynamic viewport height para que el sidebar
+         se ajuste cuando aparece/desaparece la barra de URL. Fallback
+         a 100vh en navegadores sin soporte. */
+      max-height: 100vh;
+      max-height: 100dvh;
     }
     body.sidebar-open #sidebar { transform: translateX(0); }
 
@@ -120,6 +125,7 @@
       border-radius: 8px;
       overflow: hidden;
     }
+    /* Secciones colapsables: el title es un boton que abre/cierra. */
     .sb-section-title {
       padding: 10px 12px;
       font-size: 11px; font-weight: 700; color: #5a6171;
@@ -127,7 +133,18 @@
       background: #fafbfd;
       border-bottom: 1px solid rgba(0,0,0,0.06);
       display: flex; align-items: center; gap: 6px;
+      cursor: pointer;
+      user-select: none;
+      list-style: none;
     }
+    .sb-section-title::-webkit-details-marker { display: none; }
+    .sb-section-title::marker { content: ""; }
+    .sb-section-title .chevron {
+      width: 14px; height: 14px; flex-shrink: 0;
+      margin-left: auto;
+      transition: transform 0.2s ease;
+    }
+    .sb-section:not([open]) .sb-section-title .chevron { transform: rotate(-90deg); }
     .sb-section-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
 
     /* Dims en la seccion informacion */
@@ -223,6 +240,22 @@
       body.sidebar-open #stage { right: 0; }
     }
   </style>
+  <script>
+    // En movil (ancho <= 720px) abrir el sidebar por defecto para que el
+    // usuario vea los controles inmediatamente sin tener que pulsar el menu.
+    function openSidebarIfMobile() {
+      if (window.matchMedia && window.matchMedia("(max-width: 720px)").matches) {
+        document.body.classList.add("sidebar-open");
+      }
+    }
+    // Esperar al DOMContentLoaded siempre (el <body> todavia no existe en el head).
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", openSidebarIfMobile);
+    } else {
+      // El script se ha ejecutado despues de que el body este listo (caso raro).
+      openSidebarIfMobile();
+    }
+  </script>
 </head>
 <body>
   <div id="stage"></div>
@@ -268,16 +301,22 @@
 
     <div id="sidebar-body">
       <!-- Informacion -->
-      <section class="sb-section">
-        <div class="sb-section-title">Información</div>
+      <details class="sb-section" open>
+        <summary class="sb-section-title">
+          Información
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </summary>
         <div class="sb-section-body">
           <p id="dims">Cargando dimensiones...</p>
         </div>
-      </section>
+      </details>
 
       <!-- Visualizacion: toggles -->
-      <section class="sb-section">
-        <div class="sb-section-title">Visualización</div>
+      <details class="sb-section" open>
+        <summary class="sb-section-title">
+          Visualización
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </summary>
         <div class="sb-section-body">
           <button id="toggle-walls" class="toggle on" type="button">
             <span class="label">
@@ -299,11 +338,14 @@
             <span class="indicator" aria-hidden="true"></span>
           </button>
         </div>
-      </section>
+      </details>
 
       <!-- Materiales -->
-      <section class="sb-section">
-        <div class="sb-section-title">Materiales</div>
+      <details class="sb-section" open>
+        <summary class="sb-section-title">
+          Materiales
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </summary>
         <div class="sb-section-body" id="materials-body">
           <div class="mp-row" data-key="suelo">
             <input type="color" id="mp-suelo-color" value="#c4a988" title="Color de la cara superior del suelo">
@@ -378,7 +420,7 @@
             Restablecer
           </button>
         </div>
-      </section>
+      </details>
     </div>
   </aside>
 
