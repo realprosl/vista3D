@@ -1,20 +1,44 @@
 /**
  * Server: Express + endpoints.
  *
- * Endpoints:
- *   GET  /                  -> index.html (formulario de upload)
- *   GET  /v/:id             -> view.html (visor 3D del SVG con id)
- *   POST /upload            -> recibe un SVG, devuelve un id de comparticion
- *   GET  /api/svg/:id       -> devuelve el SVG raw para que el viewer lo parsee
- *   GET  /public/*          -> archivos estaticos
+ * Modelo v0.4.0: PROYECTOS. Un proyecto es 1 planta + N alzados.
  *
- * Comparir: cada upload genera un id (uuid v4) y se guarda en
- * uploads/<id>/svg.svg. La URL para compartir es /v/<id>.
+ * Estructura en disco:
+ *   uploads/projects/<projectId>/
+ *     meta.json         { name, createdAt, alturaCm }
+ *     planta.svg        SVG de la planta
+ *     alzados/
+ *       <name>.svg      SVG de cada alzado
+ *
+ * Endpoints:
+ *   POST /api/projects                 Crea un proyecto (multipart)
+ *   GET  /api/projects                 Lista proyectos
+ *   GET  /api/projects/:id             Detalle de un proyecto
+ *   DELETE /api/projects/:id           Borra un proyecto
+ *   GET  /api/projects/:id/planta      SVG raw de la planta
+ *   GET  /api/projects/:id/alzados/:n  SVG raw de un alzado
+ *   GET  /v/:id                        Visor 3D del proyecto
+ *
+ * Endpoints legacy (v0.1-v0.3, planos sueltos). Deprecated: se mantienen
+ * funcionando para no romper enlaces viejos, pero la UI v0.4.0 ya no los usa.
+ *   GET  /api/list                     Lista planos sueltos
+ *   POST /upload                       Sube un plano suelto
+ *   GET  /api/svg/:id                  SVG raw de plano suelto
+ *   DELETE /api/svg/:id                Borra plano suelto
+ *   GET  /v/:id                        Sirve view.html (id de proyecto O plano suelto)
  */
 import express, { Request, Response, NextFunction } from "express";
 import multer from "multer";
 import { randomUUID } from "node:crypto";
-import { mkdirSync, writeFileSync, existsSync, readFileSync, rmSync, readdirSync, statSync } from "node:fs";
+import {
+  mkdirSync,
+  writeFileSync,
+  existsSync,
+  readFileSync,
+  rmSync,
+  readdirSync,
+  statSync,
+} from "node:fs";
 import { join, resolve, extname } from "node:path";
 import { parseSvg, contourBounds } from "./svg-to-3d";
 
@@ -22,16 +46,18 @@ const PORT = parseInt(process.env.PORT || "3000", 10);
 const HOST = process.env.HOST || "0.0.0.0";
 const ROOT = resolve(__dirname, "..");
 const UPLOADS = join(ROOT, "uploads");
+const PROJECTS = join(UPLOADS, "projects");
 const PUBLIC = join(ROOT, "public");
 
 mkdirSync(UPLOADS, { recursive: true });
+mkdirSync(PROJECTS, { recursive: true });
 
 const app = express();
 
-// Multer: guardar el SVG en memoria (es pequeno), validamos tipo y tamanyo.
+// Multer: SVGs en memoria (5 MB max). Acepta multiples archivos.
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const ext = extname(file.originalname).toLowerCase();
     if (ext === ".svg" || file.mimetype === "image/svg+xml") {
@@ -42,16 +68,23 @@ const upload = multer({
   },
 });
 
-/** Sirve index.html en /. */
+/** Index. */
 app.get("/", (_req, res) => {
   res.sendFile(join(PUBLIC, "index.html"));
 });
 
-/** Sirve el viewer 3D. */
+/** Visor 3D. Acepta tanto id de proyecto como id de plano suelto (legacy). */
 app.get("/v/:id", (req, res) => {
   const id = req.params.id;
-  const svgPath = join(UPLOADS, id, "svg.svg");
-  if (!existsSync(svgPath)) {
+  if (!/^[a-zA-Z0-9-]+$/.test(id)) {
+    res.status(400).send("Identificador invalido");
+    return;
+  }
+  // Detectar si es proyecto o plano suelto.
+  const projectPath = join(PROJECTS, id, "planta.svg");
+  const legacyPath = join(UPLOADS, id, "svg.svg");
+  const exists = existsSync(projectPath) || existsSync(legacyPath);
+  if (!exists) {
     res.status(404).send(`
       <!DOCTYPE html>
       <html><head><meta charset="utf-8"><title>No encontrado</title></head>
@@ -66,10 +99,261 @@ app.get("/v/:id", (req, res) => {
   res.sendFile(join(PUBLIC, "view.html"));
 });
 
-/** Devuelve el SVG raw para que el viewer lo parsee en el cliente. */
+// =============================================================================
+// PROYECTOS (v0.4.0)
+// =============================================================================
+
+/** Sanitiza el nombre de un alzado (sin extension, solo [a-z0-9-_]). */
+function sanitizeName(name: string): string {
+  const base = name.replace(/\.[^.]+$/, "").toLowerCase();
+  return base.replace(/[^a-z0-9-_]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "alzado";
+}
+
+/** POST /api/projects
+ *  multipart/form-data:
+ *    - planta: 1 archivo SVG (la planta)
+ *    - alzados: 0..N archivos SVG (los alzados)
+ *    - name (campo texto): nombre del proyecto
+ *    - alturaCm (campo texto): altura de extrusion en cm
+ */
+app.post("/api/projects", upload.fields([
+  { name: "planta", maxCount: 1 },
+  { name: "alzados", maxCount: 20 },
+]), (req: Request, res: Response) => {
+  const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+  if (!files || !files.planta || !files.planta[0]) {
+    res.status(400).json({ error: "Falta el archivo 'planta' (SVG de la planta)" });
+    return;
+  }
+  const plantaFile = files.planta[0];
+  const alzadosFiles = files.alzados || [];
+  if (alzadosFiles.length === 0) {
+    res.status(400).json({ error: "Sube al menos un alzado (campo 'alzados')" });
+    return;
+  }
+
+  // Validar la planta.
+  const plantaContent = plantaFile.buffer.toString("utf-8");
+  let plantaBounds;
+  try {
+    const result = parseSvg(plantaContent);
+    const main = result.contours[0];
+    const b = contourBounds(main);
+    plantaBounds = {
+      widthCm: Math.round(b.maxX - b.minX),
+      heightCm: Math.round(b.maxY - b.minY),
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(400).json({ error: `Planta invalida: ${msg}` });
+    return;
+  }
+
+  // Validar cada alzado.
+  const alzadosMeta: { name: string; originalName: string; bytes: number }[] = [];
+  for (const f of alzadosFiles) {
+    const content = f.buffer.toString("utf-8");
+    try {
+      parseSvg(content);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      res.status(400).json({ error: `Alzado '${f.originalname}' invalido: ${msg}` });
+      return;
+    }
+    const name = sanitizeName(f.originalname);
+    alzadosMeta.push({ name, originalName: f.originalname, bytes: f.size });
+  }
+
+  // Altura (default 250 cm).
+  let alturaCm = 250;
+  if (req.body && req.body.alturaCm) {
+    const parsed = parseFloat(req.body.alturaCm);
+    if (!isNaN(parsed) && parsed > 0 && parsed < 10000) {
+      alturaCm = parsed;
+    }
+  }
+  // Nombre del proyecto.
+  const projectName = (req.body?.name || "").trim() || `Proyecto ${new Date().toLocaleDateString("es-ES")}`;
+
+  // Generar id y guardar todo.
+  const projectId = randomUUID();
+  const projectDir = join(PROJECTS, projectId);
+  const alzadosDir = join(projectDir, "alzados");
+  mkdirSync(alzadosDir, { recursive: true });
+
+  writeFileSync(join(projectDir, "planta.svg"), plantaContent, "utf-8");
+  for (let i = 0; i < alzadosFiles.length; i++) {
+    const f = alzadosFiles[i];
+    const meta = alzadosMeta[i];
+    writeFileSync(join(alzadosDir, `${meta.name}.svg`), f.buffer.toString("utf-8"), "utf-8");
+  }
+
+  const meta = {
+    id: projectId,
+    name: projectName,
+    createdAt: new Date().toISOString(),
+    alturaCm,
+    planta: { ...plantaBounds, originalName: plantaFile.originalname, bytes: plantaFile.size },
+    alzados: alzadosMeta,
+  };
+  writeFileSync(join(projectDir, "meta.json"), JSON.stringify(meta, null, 2), "utf-8");
+
+  res.json({
+    id: projectId,
+    name: projectName,
+    viewUrl: `/v/${projectId}`,
+    planta: meta.planta,
+    alturaCm,
+    alzados: alzadosMeta,
+  });
+});
+
+/** GET /api/projects — lista todos los proyectos. */
+app.get("/api/projects", (_req, res) => {
+  if (!existsSync(PROJECTS)) {
+    res.json({ projects: [] });
+    return;
+  }
+  const entries = readdirSync(PROJECTS);
+  const projects = [];
+  for (const entry of entries) {
+    const metaPath = join(PROJECTS, entry, "meta.json");
+    if (!existsSync(metaPath)) continue;
+    try {
+      const stat = statSync(join(PROJECTS, entry));
+      const meta = JSON.parse(readFileSync(metaPath, "utf-8"));
+      projects.push({
+        id: meta.id,
+        name: meta.name,
+        viewUrl: `/v/${meta.id}`,
+        createdAt: meta.createdAt,
+        alturaCm: meta.alturaCm,
+        planta: meta.planta,
+        alzadosCount: (meta.alzados || []).length,
+      });
+    } catch {
+      // Si meta.json no parsea, lo saltamos.
+    }
+  }
+  // El statSync sobreescribe createdAt con mtime si fue modificado.
+  projects.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  res.json({ projects });
+});
+
+/** GET /api/projects/:id — detalle completo de un proyecto. */
+app.get("/api/projects/:id", (req, res) => {
+  const id = req.params.id;
+  if (!/^[a-zA-Z0-9-]+$/.test(id)) {
+    res.status(400).json({ error: "Identificador invalido" });
+    return;
+  }
+  const metaPath = join(PROJECTS, id, "meta.json");
+  if (!existsSync(metaPath)) {
+    res.status(404).json({ error: "Proyecto no encontrado" });
+    return;
+  }
+  try {
+    const meta = JSON.parse(readFileSync(metaPath, "utf-8"));
+    res.json(meta);
+  } catch {
+    res.status(500).json({ error: "meta.json corrupto" });
+  }
+});
+
+/** GET /api/projects/:id/planta — SVG raw de la planta. */
+app.get("/api/projects/:id/planta", (req, res) => {
+  const id = req.params.id;
+  if (!/^[a-zA-Z0-9-]+$/.test(id)) {
+    res.status(400).json({ error: "Identificador invalido" });
+    return;
+  }
+  const path = join(PROJECTS, id, "planta.svg");
+  if (!existsSync(path)) {
+    res.status(404).json({ error: "Planta no encontrada" });
+    return;
+  }
+  res.setHeader("Content-Type", "image/svg+xml");
+  res.send(readFileSync(path));
+});
+
+/** GET /api/projects/:id/alzados/:name — SVG raw de un alzado. */
+app.get("/api/projects/:id/alzados/:name", (req, res) => {
+  const { id, name } = req.params;
+  if (!/^[a-zA-Z0-9-]+$/.test(id) || !/^[a-zA-Z0-9-_]+$/.test(name)) {
+    res.status(400).json({ error: "Identificador invalido" });
+    return;
+  }
+  const path = join(PROJECTS, id, "alzados", `${name}.svg`);
+  if (!existsSync(path)) {
+    res.status(404).json({ error: "Alzado no encontrado" });
+    return;
+  }
+  res.setHeader("Content-Type", "image/svg+xml");
+  res.send(readFileSync(path));
+});
+
+/** DELETE /api/projects/:id — borra un proyecto. */
+app.delete("/api/projects/:id", (req, res) => {
+  const id = req.params.id;
+  if (!/^[a-zA-Z0-9-]+$/.test(id)) {
+    res.status(400).json({ error: "Identificador invalido" });
+    return;
+  }
+  const dir = join(PROJECTS, id);
+  if (!existsSync(dir)) {
+    res.status(404).json({ error: "Proyecto no encontrado" });
+    return;
+  }
+  rmSync(dir, { recursive: true, force: true });
+  res.json({ status: "deleted", id });
+});
+
+// =============================================================================
+// LEGACY: PLANOS SUELTOS (v0.1-v0.3)
+// Deprecated, se mantienen para no romper enlaces viejos. La UI v0.4.0 ya
+// no los usa.
+// =============================================================================
+
+/** POST /upload (legacy). Sube un SVG como plano suelto. */
+app.post("/upload", upload.single("svg"), (req: Request, res: Response) => {
+  if (!req.file) {
+    res.status(400).json({ error: "No se recibio ningun archivo" });
+    return;
+  }
+  const content = req.file.buffer.toString("utf-8");
+  let parseResult;
+  try {
+    parseResult = parseSvg(content);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(400).json({ error: `SVG invalido: ${msg}` });
+    return;
+  }
+  let alturaCm = 250;
+  if (req.body && req.body.alturaCm) {
+    const parsed = parseFloat(req.body.alturaCm);
+    if (!isNaN(parsed) && parsed > 0 && parsed < 10000) alturaCm = parsed;
+  }
+  const id = randomUUID();
+  const dir = join(UPLOADS, id);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "svg.svg"), content, "utf-8");
+  const mainContour = parseResult.contours[0];
+  const bounds = contourBounds(mainContour);
+  res.json({
+    id,
+    viewUrl: `/v/${id}`,
+    apiUrl: `/api/svg/${id}`,
+    heightCm: alturaCm,
+    bounds: { widthCm: Math.round(bounds.maxX - bounds.minX), heightCm: Math.round(bounds.maxY - bounds.minY) },
+    contourCount: parseResult.contours.length,
+    deprecated: "v0.4.0: usa POST /api/projects para subir planta + alzados",
+  });
+});
+
+/** GET /api/svg/:id (legacy). SVG raw de plano suelto. */
 app.get("/api/svg/:id", (req, res) => {
   const id = req.params.id;
-  // Evitar path traversal: solo [a-zA-Z0-9-] permitidos.
   if (!/^[a-zA-Z0-9-]+$/.test(id)) {
     res.status(400).json({ error: "Identificador invalido" });
     return;
@@ -83,65 +367,7 @@ app.get("/api/svg/:id", (req, res) => {
   res.send(readFileSync(svgPath));
 });
 
-/** Endpoint principal: subir un SVG, devuelve id + metadatos. */
-app.post("/upload", upload.single("svg"), (req: Request, res: Response) => {
-  if (!req.file) {
-    res.status(400).json({ error: "No se recibio ningun archivo" });
-    return;
-  }
-  const content = req.file.buffer.toString("utf-8");
-
-  // Validar que se puede parsear.
-  let parseResult;
-  try {
-    parseResult = parseSvg(content);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(400).json({ error: `SVG invalido: ${msg}` });
-    return;
-  }
-
-  // Validar altura: si el body tiene un campo "alturaCm" parsearlo.
-  let alturaCm = 250; // default 2.5m
-  if (req.body && req.body.alturaCm) {
-    const parsed = parseFloat(req.body.alturaCm);
-    if (!isNaN(parsed) && parsed > 0 && parsed < 10000) {
-      alturaCm = parsed;
-    }
-  }
-
-  // Generar id y guardar.
-  const id = randomUUID();
-  const dir = join(UPLOADS, id);
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "svg.svg"), content, "utf-8");
-
-  // Bounds en cm (asumimos viewBox en cm; si no, en px = cm para v1).
-  const mainContour = parseResult.contours[0];
-  const bounds = contourBounds(mainContour);
-  const widthCm = Math.round(bounds.maxX - bounds.minX);
-  const heightCm = Math.round(bounds.maxY - bounds.minY);
-
-  res.json({
-    id,
-    viewUrl: `/v/${id}`,
-    apiUrl: `/api/svg/${id}`,
-    heightCm: alturaCm,
-    bounds: { widthCm, heightCm },
-    contourCount: parseResult.contours.length,
-  });
-});
-
-/** Borra un plano por id. */
-function deleteSvg(id: string): boolean {
-  if (!/^[a-zA-Z0-9-]+$/.test(id)) return false;
-  const dir = join(UPLOADS, id);
-  if (!existsSync(dir)) return false;
-  rmSync(dir, { recursive: true, force: true });
-  return true;
-}
-
-/** Devuelve la lista de planos subidos. */
+/** GET /api/list (legacy). Lista planos sueltos. */
 app.get("/api/list", (_req, res) => {
   if (!existsSync(UPLOADS)) {
     res.json({ planos: [] });
@@ -150,7 +376,7 @@ app.get("/api/list", (_req, res) => {
   const entries = readdirSync(UPLOADS);
   const planos = [];
   for (const entry of entries) {
-    if (entry === ".gitkeep") continue;
+    if (entry === "projects" || entry === ".gitkeep") continue;
     const svgPath = join(UPLOADS, entry, "svg.svg");
     if (!existsSync(svgPath)) continue;
     try {
@@ -165,30 +391,37 @@ app.get("/api/list", (_req, res) => {
         createdAt: stat.mtime.toISOString(),
         widthCm: Math.round(bounds.maxX - bounds.minX),
         heightCm: Math.round(bounds.maxY - bounds.minY),
+        deprecated: "v0.4.0: usa /api/projects",
       });
     } catch {
-      // Si el SVG no parsea, lo saltamos.
+      // Skip
     }
   }
-  // Mas recientes primero.
   planos.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   res.json({ planos });
 });
 
-/** Borra un plano por id. */
+/** DELETE /api/svg/:id (legacy). Borra plano suelto. */
 app.delete("/api/svg/:id", (req, res) => {
-  const ok = deleteSvg(req.params.id);
-  if (!ok) {
+  const id = req.params.id;
+  if (!/^[a-zA-Z0-9-]+$/.test(id)) {
+    res.status(400).json({ error: "Identificador invalido" });
+    return;
+  }
+  const dir = join(UPLOADS, id);
+  if (!existsSync(dir)) {
     res.status(404).json({ error: "Plano no encontrado o id invalido" });
     return;
   }
-  res.json({ status: "deleted", id: req.params.id });
+  rmSync(dir, { recursive: true, force: true });
+  res.json({ status: "deleted", id, deprecated: "v0.4.0: usa DELETE /api/projects/:id" });
 });
 
-/** Archivos estaticos (CSS, JS, three.js local si lo hubiera). */
+// =============================================================================
+// STATIC + ERROR HANDLER
+// =============================================================================
 app.use("/public", express.static(PUBLIC));
 
-/** Multer / errores genericos. */
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error("Error:", err.message);
   res.status(500).json({ error: err.message });
@@ -196,6 +429,7 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 
 app.listen(PORT, HOST, () => {
   console.log(`vista3D server en http://${HOST}:${PORT}`);
-  console.log(`  - Subir:  POST /upload (multipart/form-data, campo "svg")`);
-  console.log(`  - Ver:    GET  /v/<id>`);
+  console.log(`  - Proyectos:  POST /api/projects (multipart, campos: planta, alzados[], name, alturaCm)`);
+  console.log(`  - Lista:      GET  /api/projects`);
+  console.log(`  - Ver:        GET  /v/<projectId>`);
 });

@@ -3,12 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>vista3D - Subir plano SVG</title>
+  <title>vista3D - Proyectos SVG</title>
   <style>
-    /* ========================================================================
-       THEME TOKENS
-       Cambia todos los colores del sitio con [data-theme="dark"].
-       ======================================================================== */
     :root {
       --bg: #f7f8fb;
       --bg-elev: #ffffff;
@@ -25,7 +21,6 @@
       --success-soft: #e6f7ed;
       --danger: #d8424d;
       --danger-soft: #fce8e9;
-      --warning: #d68900;
       --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
       --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.06);
       --shadow-lg: 0 10px 30px rgba(15, 23, 42, 0.08);
@@ -52,346 +47,168 @@
       --success-soft: #15301f;
       --danger: #f06572;
       --danger-soft: #3a1c20;
-      --warning: #f0b945;
       --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
       --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
       --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.5);
     }
-    /* ========================================================================
-       BASE
-       ======================================================================== */
     *, *::before, *::after { box-sizing: border-box; }
     html { -webkit-text-size-adjust: 100%; }
     body {
-      margin: 0;
-      font-family: var(--font);
-      background: var(--bg);
-      color: var(--fg);
-      line-height: 1.55;
-      min-height: 100vh;
+      margin: 0; font-family: var(--font); background: var(--bg);
+      color: var(--fg); line-height: 1.55; min-height: 100vh;
       transition: background var(--transition), color var(--transition);
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
+      -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
     }
     a { color: var(--primary); text-decoration: none; }
     a:hover { color: var(--primary-hover); }
     code {
       font-family: ui-monospace, "SF Mono", Menlo, monospace;
-      font-size: 0.9em;
-      background: var(--bg-elev-2);
-      padding: 1px 6px;
-      border-radius: 4px;
+      font-size: 0.9em; background: var(--bg-elev-2);
+      padding: 1px 6px; border-radius: 4px;
     }
-
-    /* ========================================================================
-       LAYOUT
-       ======================================================================== */
-    .container {
-      max-width: 760px;
-      margin: 0 auto;
-      padding: 0 24px;
-    }
-
-    /* Header */
+    .container { max-width: 760px; margin: 0 auto; padding: 0 24px; }
     header {
-      padding: 20px 0;
-      position: sticky;
-      top: 0;
-      z-index: 10;
+      padding: 20px 0; position: sticky; top: 0; z-index: 10;
       background: color-mix(in srgb, var(--bg) 80%, transparent);
       backdrop-filter: saturate(180%) blur(12px);
       -webkit-backdrop-filter: saturate(180%) blur(12px);
       border-bottom: 1px solid var(--border);
     }
-    header .row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-    }
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-weight: 700;
-      font-size: 18px;
-      color: var(--fg);
-    }
+    header .row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; color: var(--fg); }
     .brand-mark {
-      width: 32px;
-      height: 32px;
-      display: grid;
-      place-items: center;
+      width: 32px; height: 32px; display: grid; place-items: center;
       background: linear-gradient(135deg, var(--primary), var(--primary-hover));
-      color: white;
-      border-radius: 8px;
-      box-shadow: var(--shadow-sm);
+      color: white; border-radius: 8px; box-shadow: var(--shadow-sm);
     }
-
-    /* Theme toggle */
     .theme-toggle {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 10px;
-      background: var(--bg-elev-2);
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      color: var(--fg-muted);
-      font-size: 13px;
-      cursor: pointer;
-      transition: all var(--transition);
-      font-family: inherit;
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 10px; background: var(--bg-elev-2);
+      border: 1px solid var(--border); border-radius: 999px;
+      color: var(--fg-muted); font-size: 13px; cursor: pointer;
+      transition: all var(--transition); font-family: inherit;
     }
-    .theme-toggle:hover {
-      border-color: var(--border-strong);
-      color: var(--fg);
-    }
-    .theme-toggle svg {
-      width: 16px;
-      height: 16px;
-      flex-shrink: 0;
-    }
+    .theme-toggle:hover { border-color: var(--border-strong); color: var(--fg); }
+    .theme-toggle svg { width: 16px; height: 16px; flex-shrink: 0; }
     .theme-toggle .icon-sun { display: none; }
     .theme-toggle .icon-moon { display: block; }
     [data-theme="dark"] .theme-toggle .icon-sun { display: block; }
     [data-theme="dark"] .theme-toggle .icon-moon { display: none; }
-
-    /* Hero */
-    .hero {
-      padding: 56px 0 32px;
-      text-align: center;
-    }
+    .hero { padding: 56px 0 32px; text-align: center; }
     .hero h1 {
-      margin: 0 0 12px;
-      font-size: 40px;
-      font-weight: 800;
+      margin: 0 0 12px; font-size: 40px; font-weight: 800;
       letter-spacing: -0.02em;
       background: linear-gradient(135deg, var(--fg), var(--fg-muted));
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
+      -webkit-background-clip: text; background-clip: text; color: transparent;
     }
-    .hero p {
-      margin: 0;
-      color: var(--fg-muted);
-      font-size: 17px;
-      max-width: 520px;
-      margin-left: auto;
-      margin-right: auto;
-    }
-
-    /* Cards */
+    .hero p { margin: 0 auto; color: var(--fg-muted); font-size: 17px; max-width: 520px; }
     .card {
-      background: var(--bg-elev);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-xl);
-      padding: 28px;
-      margin-bottom: 20px;
+      background: var(--bg-elev); border: 1px solid var(--border);
+      border-radius: var(--radius-xl); padding: 28px; margin-bottom: 20px;
       box-shadow: var(--shadow-sm);
       transition: box-shadow var(--transition), background var(--transition);
     }
-    .card-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 20px;
-    }
+    .card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
     .card-icon {
-      width: 36px; height: 36px;
-      display: grid; place-items: center;
-      background: var(--primary-soft);
-      color: var(--primary);
-      border-radius: var(--radius-md);
-      flex-shrink: 0;
+      width: 36px; height: 36px; display: grid; place-items: center;
+      background: var(--primary-soft); color: var(--primary);
+      border-radius: var(--radius-md); flex-shrink: 0;
     }
     .card-icon svg { width: 20px; height: 20px; }
-    .card-title {
-      margin: 0;
-      font-size: 17px;
-      font-weight: 600;
-      color: var(--fg);
-    }
-    .card-subtitle {
-      margin: 2px 0 0;
-      font-size: 13px;
-      color: var(--fg-subtle);
-    }
+    .card-title { margin: 0; font-size: 17px; font-weight: 600; color: var(--fg); }
+    .card-subtitle { margin: 2px 0 0; font-size: 13px; color: var(--fg-subtle); }
 
-    /* Drop zone */
+    .dropzones { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .dropzone {
-      position: relative;
-      border: 2px dashed var(--border-strong);
-      border-radius: var(--radius-lg);
-      padding: 40px 24px;
-      text-align: center;
-      cursor: pointer;
-      background: var(--bg-elev-2);
-      transition: all var(--transition);
+      position: relative; border: 2px dashed var(--border-strong);
+      border-radius: var(--radius-lg); padding: 24px 12px;
+      text-align: center; cursor: pointer;
+      background: var(--bg-elev-2); transition: all var(--transition);
       overflow: hidden;
     }
     .dropzone::before {
-      content: "";
-      position: absolute; inset: 0;
+      content: ""; position: absolute; inset: 0;
       background: linear-gradient(135deg, transparent 0%, var(--primary-soft) 100%);
-      opacity: 0;
-      transition: opacity var(--transition);
+      opacity: 0; transition: opacity var(--transition);
     }
-    .dropzone:hover, .dropzone.dragover {
-      border-color: var(--primary);
-      border-style: solid;
-    }
+    .dropzone:hover, .dropzone.dragover { border-color: var(--primary); border-style: solid; }
     .dropzone:hover::before, .dropzone.dragover::before { opacity: 0.5; }
     .dropzone > * { position: relative; }
+    .dropzone .label {
+      font-size: 12px; font-weight: 600; color: var(--primary);
+      text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;
+    }
     .dropzone .icon-upload {
-      width: 48px; height: 48px;
-      margin: 0 auto 12px;
-      color: var(--primary);
-      display: grid; place-items: center;
-      background: var(--primary-soft);
-      border-radius: 50%;
+      width: 40px; height: 40px; margin: 0 auto 8px;
+      color: var(--primary); display: grid; place-items: center;
+      background: var(--primary-soft); border-radius: 50%;
     }
-    .dropzone .icon-upload svg { width: 24px; height: 24px; }
-    .dropzone .title {
-      font-size: 16px;
-      font-weight: 600;
-      color: var(--fg);
-      margin-bottom: 4px;
+    .dropzone .icon-upload svg { width: 20px; height: 20px; }
+    .dropzone .title { font-size: 14px; font-weight: 600; color: var(--fg); margin-bottom: 2px; }
+    .dropzone .subtitle { font-size: 12px; color: var(--fg-subtle); }
+    .dropzone .files { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; }
+    .dropzone .file-item {
+      padding: 4px 8px; background: var(--primary-soft); color: var(--primary);
+      font-size: 12px; font-weight: 500; border-radius: var(--radius-sm);
+      text-align: left; overflow: hidden; text-overflow: ellipsis;
+      white-space: nowrap; display: flex; align-items: center; gap: 6px;
     }
-    .dropzone .subtitle {
-      font-size: 13px;
-      color: var(--fg-subtle);
-    }
-    .dropzone .filename {
-      margin-top: 12px;
-      padding: 8px 12px;
-      background: var(--primary-soft);
-      color: var(--primary);
-      font-size: 13px;
-      font-weight: 500;
-      border-radius: var(--radius-sm);
-      display: inline-block;
-    }
+    .dropzone .file-item svg { width: 12px; height: 12px; flex-shrink: 0; }
+    .dropzone .file-item .remove { margin-left: auto; cursor: pointer; opacity: 0.6; flex-shrink: 0; }
+    .dropzone .file-item .remove:hover { opacity: 1; }
+    .dropzone .empty-hint { font-size: 12px; color: var(--fg-subtle); }
     .dropzone input[type=file] { display: none; }
 
-    /* Form fields */
-    .field {
-      margin-top: 20px;
-    }
-    .field label {
-      display: block;
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--fg);
-      margin-bottom: 8px;
-    }
-    .field .hint {
-      display: block;
-      font-size: 12px;
-      color: var(--fg-subtle);
-      margin-top: 6px;
-    }
-    .input-group {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .input-number {
-      width: 110px;
-      padding: 10px 12px;
-      font: inherit;
-      font-size: 15px;
-      color: var(--fg);
-      background: var(--bg-elev-2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
+    .field { margin-top: 16px; }
+    .field label { display: block; font-size: 14px; font-weight: 600; color: var(--fg); margin-bottom: 8px; }
+    .field .hint { display: block; font-size: 12px; color: var(--fg-subtle); margin-top: 6px; }
+    .input-group { display: flex; align-items: center; gap: 8px; }
+    .input-text, .input-number {
+      padding: 10px 12px; font: inherit; font-size: 15px;
+      color: var(--fg); background: var(--bg-elev-2);
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
       transition: all var(--transition);
     }
-    .input-number:focus {
-      outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px var(--primary-soft);
+    .input-text { width: 100%; }
+    .input-number { width: 110px; }
+    .input-text:focus, .input-number:focus {
+      outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft);
     }
-    .input-suffix {
-      font-size: 14px;
-      color: var(--fg-subtle);
-    }
+    .input-suffix { font-size: 14px; color: var(--fg-subtle); }
 
-    /* Buttons */
     .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      padding: 11px 20px;
-      font: inherit;
-      font-size: 15px;
-      font-weight: 600;
-      border: 0;
-      border-radius: var(--radius-sm);
-      cursor: pointer;
-      transition: all var(--transition);
-      white-space: nowrap;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 11px 20px; font: inherit; font-size: 15px; font-weight: 600;
+      border: 0; border-radius: var(--radius-sm); cursor: pointer;
+      transition: all var(--transition); white-space: nowrap;
     }
     .btn svg { width: 16px; height: 16px; }
-    .btn-primary {
-      background: var(--primary);
-      color: white;
-      box-shadow: var(--shadow-sm);
-    }
+    .btn-primary { background: var(--primary); color: white; box-shadow: var(--shadow-sm); }
     .btn-primary:hover:not(:disabled) {
-      background: var(--primary-hover);
-      transform: translateY(-1px);
-      box-shadow: var(--shadow-md);
+      background: var(--primary-hover); transform: translateY(-1px); box-shadow: var(--shadow-md);
     }
     .btn-primary:active:not(:disabled) { transform: translateY(0); }
-    .btn-primary:disabled {
-      background: var(--fg-subtle);
-      cursor: not-allowed;
-      transform: none;
-      box-shadow: none;
-    }
-    .btn-secondary {
-      background: var(--bg-elev-2);
-      color: var(--fg);
-      border: 1px solid var(--border);
-    }
-    .btn-secondary:hover {
-      background: var(--border);
-      border-color: var(--border-strong);
-    }
-    .btn-danger {
-      background: transparent;
-      color: var(--danger);
-      border: 1px solid var(--border);
-    }
-    .btn-danger:hover {
-      background: var(--danger-soft);
-      border-color: var(--danger);
-    }
+    .btn-primary:disabled { background: var(--fg-subtle); cursor: not-allowed; transform: none; box-shadow: none; }
+    .btn-secondary { background: var(--bg-elev-2); color: var(--fg); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: var(--border); border-color: var(--border-strong); }
+    .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--border); }
+    .btn-danger:hover { background: var(--danger-soft); border-color: var(--danger); }
     .btn-block { width: 100%; margin-top: 20px; }
 
-    /* Status messages */
     #status { margin-top: 16px; min-height: 0; }
     #status:empty { display: none; }
     .alert {
-      padding: 12px 16px;
-      border-radius: var(--radius-md);
-      font-size: 14px;
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
+      padding: 12px 16px; border-radius: var(--radius-md); font-size: 14px;
+      display: flex; align-items: flex-start; gap: 10px;
       border: 1px solid transparent;
     }
     .alert svg { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; }
     .alert-success {
-      background: var(--success-soft);
-      color: var(--success);
+      background: var(--success-soft); color: var(--success);
       border-color: color-mix(in srgb, var(--success) 30%, transparent);
     }
     .alert-error {
-      background: var(--danger-soft);
-      color: var(--danger);
+      background: var(--danger-soft); color: var(--danger);
       border-color: color-mix(in srgb, var(--danger) 30%, transparent);
     }
     .alert .body { flex: 1; }
@@ -400,88 +217,38 @@
     .alert .body p:last-child { margin-bottom: 0; }
     .alert .body code { background: rgba(0, 0, 0, 0.1); }
 
-    /* Plano list */
-    .planos-empty {
-      text-align: center;
-      padding: 40px 20px;
-      color: var(--fg-subtle);
-      font-size: 14px;
+    .projects-empty { text-align: center; padding: 40px 20px; color: var(--fg-subtle); font-size: 14px; }
+    .project {
+      display: flex; align-items: center; gap: 16px;
+      padding: 14px 16px; background: var(--bg-elev-2);
+      border: 1px solid var(--border); border-radius: var(--radius-md);
+      margin-bottom: 8px; transition: all var(--transition);
     }
-    .plano {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 14px 16px;
-      background: var(--bg-elev-2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      margin-bottom: 8px;
-      transition: all var(--transition);
+    .project:hover { border-color: var(--border-strong); background: var(--bg-elev); }
+    .project-thumb {
+      width: 48px; height: 48px; display: grid; place-items: center;
+      background: var(--primary-soft); color: var(--primary);
+      border-radius: var(--radius-sm); flex-shrink: 0;
     }
-    .plano:hover {
-      border-color: var(--border-strong);
-      background: var(--bg-elev);
-    }
-    .plano-thumb {
-      width: 48px; height: 48px;
-      display: grid; place-items: center;
-      background: var(--primary-soft);
-      color: var(--primary);
-      border-radius: var(--radius-sm);
-      flex-shrink: 0;
-    }
-    .plano-thumb svg { width: 22px; height: 22px; }
-    .plano-info { flex: 1; min-width: 0; }
-    .plano-info .name {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--fg);
-    }
-    .plano-info .meta {
-      font-size: 12px;
-      color: var(--fg-subtle);
-      margin-top: 2px;
-    }
-    .plano-actions { display: flex; gap: 6px; }
-    .plano-actions .btn {
-      padding: 7px 12px;
-      font-size: 13px;
-    }
-    .plano-actions .btn svg { width: 14px; height: 14px; }
+    .project-thumb svg { width: 22px; height: 22px; }
+    .project-info { flex: 1; min-width: 0; }
+    .project-info .name { font-size: 14px; font-weight: 600; color: var(--fg); }
+    .project-info .meta { font-size: 12px; color: var(--fg-subtle); margin-top: 2px; }
+    .project-actions { display: flex; gap: 6px; }
+    .project-actions .btn { padding: 7px 12px; font-size: 13px; }
+    .project-actions .btn svg { width: 14px; height: 14px; }
 
-    /* Tip box */
     .tip {
-      margin-top: 24px;
-      padding: 14px 16px;
-      background: var(--bg-elev-2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      font-size: 13px;
-      color: var(--fg-muted);
-      display: flex;
-      gap: 10px;
+      margin-top: 24px; padding: 14px 16px;
+      background: var(--bg-elev-2); border: 1px solid var(--border);
+      border-radius: var(--radius-md); font-size: 13px; color: var(--fg-muted);
+      display: flex; gap: 10px;
     }
-    .tip svg {
-      width: 16px; height: 16px; flex-shrink: 0; margin-top: 2px;
-      color: var(--fg-subtle);
-    }
+    .tip svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 2px; color: var(--fg-subtle); }
 
-    /* Footer */
-    footer {
-      padding: 32px 0 24px;
-      text-align: center;
-      color: var(--fg-subtle);
-      font-size: 12px;
-    }
-
-    /* Small */
-    .text-muted { color: var(--fg-muted); }
+    footer { padding: 32px 0 24px; text-align: center; color: var(--fg-subtle); font-size: 12px; }
     .text-subtle { color: var(--fg-subtle); font-size: 12px; }
 
-    /* ========================================================================
-       RESPONSIVE
-       ======================================================================== */
-    /* Tablet y medianas (<= 720px) */
     @media (max-width: 720px) {
       .container { padding: 0 16px; }
       .hero { padding: 40px 0 24px; }
@@ -492,13 +259,9 @@
       .card-icon { width: 32px; height: 32px; }
       .card-icon svg { width: 18px; height: 18px; }
       .card-title { font-size: 16px; }
-      .dropzone { padding: 32px 18px; }
-      .dropzone .icon-upload { width: 42px; height: 42px; }
-      .dropzone .icon-upload svg { width: 22px; height: 22px; }
-      .dropzone .title { font-size: 15px; }
       .theme-label { display: none; }
+      .dropzones { grid-template-columns: 1fr; }
     }
-    /* Movil pequeno (<= 480px) */
     @media (max-width: 480px) {
       header { padding: 14px 0; }
       .brand { font-size: 16px; }
@@ -507,23 +270,16 @@
       .hero h1 { font-size: 26px; letter-spacing: -0.01em; }
       .hero p { font-size: 15px; }
       .card { padding: 18px; border-radius: var(--radius-md); }
-      .card-header { flex-wrap: wrap; }
-      .dropzone { padding: 28px 14px; }
-      .dropzone .title { font-size: 14px; }
-      .dropzone .subtitle { font-size: 12px; }
+      .dropzone { padding: 18px 10px; }
+      .dropzone .title { font-size: 13px; }
       .field label { font-size: 13px; }
       .input-number { font-size: 14px; padding: 9px 10px; }
       .btn { font-size: 14px; padding: 10px 16px; }
-      /* Planos: layout vertical en pantallas muy estrechas */
-      .plano {
-        flex-wrap: wrap;
-        gap: 12px;
-        padding: 12px;
-      }
-      .plano-thumb { width: 40px; height: 40px; }
-      .plano-info { flex: 1 1 60%; }
-      .plano-actions { width: 100%; justify-content: flex-end; }
-      .plano-actions .btn { flex: 1; }
+      .project { flex-wrap: wrap; gap: 12px; padding: 12px; }
+      .project-thumb { width: 40px; height: 40px; }
+      .project-info { flex: 1 1 60%; }
+      .project-actions { width: 100%; justify-content: flex-end; }
+      .project-actions .btn { flex: 1; }
       .alert { padding: 10px 12px; font-size: 13px; }
       .tip { font-size: 12px; padding: 12px; }
       footer { padding: 24px 0 16px; font-size: 11px; }
@@ -560,7 +316,7 @@
     <div class="container">
       <section class="hero">
         <h1>Convierte planos SVG en 3D</h1>
-        <p>Sube un plano vectorial y obtén una vista 3D compartible por enlace en segundos.</p>
+        <p>Sube una planta y sus alzados, obtén una vista 3D compartible por enlace.</p>
       </section>
 
       <div class="card">
@@ -573,24 +329,44 @@
             </svg>
           </div>
           <div>
-            <h2 class="card-title">Nuevo plano</h2>
-            <p class="card-subtitle">Arrastra un SVG o haz click para seleccionarlo</p>
+            <h2 class="card-title">Nuevo proyecto</h2>
+            <p class="card-subtitle">1 planta + al menos 1 alzado</p>
           </div>
         </div>
 
         <form id="form">
-          <div class="dropzone" id="dropzone" role="button" tabindex="0">
-            <div class="icon-upload">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="17 8 12 3 7 8"/>
-                <line x1="12" y1="3" x2="12" y2="15"/>
-              </svg>
+          <div class="field">
+            <label for="project-name">Nombre del proyecto</label>
+            <input type="text" id="project-name" name="name" class="input-text" placeholder="Mi piso de prueba" required>
+          </div>
+
+          <div class="dropzones">
+            <div class="dropzone" id="dropzone-planta" role="button" tabindex="0" data-target="planta">
+              <div class="label">Planta</div>
+              <div class="icon-upload">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/>
+                </svg>
+              </div>
+              <div class="title">Arrastra o haz click</div>
+              <div class="subtitle">1 archivo .svg (vista superior)</div>
+              <div class="files" id="files-planta"></div>
+              <input type="file" id="file-planta" accept=".svg,image/svg+xml" required>
             </div>
-            <div class="title">Arrastra aquí tu archivo .svg</div>
-            <div class="subtitle">o haz click para seleccionar</div>
-            <div id="filename" class="filename" style="display: none;"></div>
-            <input type="file" id="svg" name="svg" accept=".svg,image/svg+xml" required>
+            <div class="dropzone" id="dropzone-alzados" role="button" tabindex="0" data-target="alzados">
+              <div class="label">Alzados</div>
+              <div class="icon-upload">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="1"/>
+                  <line x1="3" y1="9" x2="21" y2="9"/>
+                  <line x1="9" y1="3" x2="9" y2="21"/>
+                </svg>
+              </div>
+              <div class="title">Arrastra uno o varios</div>
+              <div class="subtitle">fachadas, secciones…</div>
+              <div class="files" id="files-alzados"></div>
+              <input type="file" id="file-alzados" accept=".svg,image/svg+xml" multiple>
+            </div>
           </div>
 
           <div class="field">
@@ -608,7 +384,7 @@
               <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
               <line x1="12" y1="22.08" x2="12" y2="12"/>
             </svg>
-            <span>Generar vista 3D</span>
+            <span>Crear proyecto</span>
           </button>
         </form>
         <div id="status"></div>
@@ -622,12 +398,12 @@
             </svg>
           </div>
           <div>
-            <h2 class="card-title">Planos guardados <span id="count" class="text-subtle"></span></h2>
-            <p class="card-subtitle">Tus subidas recientes</p>
+            <h2 class="card-title">Proyectos guardados <span id="count" class="text-subtle"></span></h2>
+            <p class="card-subtitle">Tus proyectos recientes</p>
           </div>
         </div>
-        <div id="planos">
-          <div class="planos-empty">Cargando...</div>
+        <div id="projects">
+          <div class="projects-empty">Cargando...</div>
         </div>
       </div>
 
@@ -638,7 +414,7 @@
           <line x1="12" y1="8" x2="12.01" y2="8"/>
         </svg>
         <div>
-          Ejecuta <code>npm run sample</code> para regenerar el SVG de prueba, o descárgalo directamente:
+          Ejecuta <code>npm run sample</code> para regenerar los SVGs de prueba, o descárgalos directamente:
           <a href="/public/samples/sample-room.svg" download>sample-room.svg</a> ·
           <a href="/public/samples/piso-3hab.svg" download>piso-3hab.svg</a>
         </div>
@@ -646,98 +422,132 @@
     </div>
   </main>
 
-  <footer>
-    vista3D · app interna · v0.3.2
-  </footer>
+  <footer>vista3D · app interna · v0.4.0a</footer>
 
   <script>
-    // ========================================================================
     // THEME
-    // ========================================================================
     const THEME_KEY = "vista3d-theme";
     const themeToggle = document.getElementById("theme-toggle");
     const themeLabel = themeToggle.querySelector(".theme-label");
     const root = document.documentElement;
-
     function applyTheme(theme) {
       root.setAttribute("data-theme", theme);
       themeLabel.textContent = theme === "dark" ? "Claro" : "Oscuro";
       try { localStorage.setItem(THEME_KEY, theme); } catch {}
     }
-    // Cargar tema persistido; default = light. Si el usuario tiene dark
-    // preference en el sistema y nunca ha elegido, usamos dark.
     let saved;
     try { saved = localStorage.getItem(THEME_KEY); } catch {}
-    if (saved === "dark" || saved === "light") {
-      applyTheme(saved);
-    } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
-      applyTheme("dark");
-    } else {
-      applyTheme("light");
-    }
+    if (saved === "dark" || saved === "light") applyTheme(saved);
+    else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) applyTheme("dark");
+    else applyTheme("light");
     themeToggle.addEventListener("click", () => {
       applyTheme(root.getAttribute("data-theme") === "dark" ? "light" : "dark");
     });
 
-    // ========================================================================
-    // DOM
-    // ========================================================================
+    // DROPZONES
+    const state = { planta: [], alzados: [] };
+    function setupDropzone(target) {
+      const dz = document.getElementById(`dropzone-${target}`);
+      const input = document.getElementById(`file-${target}`);
+      function openPicker() { input.click(); }
+      dz.addEventListener("click", openPicker);
+      dz.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPicker(); }
+      });
+      dz.addEventListener("dragover", (e) => { e.preventDefault(); dz.classList.add("dragover"); });
+      dz.addEventListener("dragleave", () => dz.classList.remove("dragover"));
+      dz.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dz.classList.remove("dragover");
+        const files = Array.from(e.dataTransfer.files);
+        addFiles(target, files);
+      });
+      input.addEventListener("change", () => {
+        const files = Array.from(input.files);
+        addFiles(target, files);
+      });
+    }
+    function addFiles(target, files) {
+      const svgs = files.filter(f => f.name.toLowerCase().endsWith(".svg") || f.type === "image/svg+xml");
+      if (svgs.length === 0) { showStatusError("Solo se aceptan archivos .svg"); return; }
+      if (target === "planta") {
+        if (svgs.length > 1) {
+          showStatusError("Solo se permite 1 planta. Arrastra un solo archivo en la casilla de planta.");
+          return;
+        }
+        state.planta = [svgs[0]];
+      } else {
+        const remaining = 20 - state.alzados.length;
+        if (svgs.length > remaining) {
+          showStatusError(`Máximo 20 alzados. Se ignoraron los últimos ${svgs.length - remaining} archivos.`);
+          state.alzados.push(...svgs.slice(0, remaining));
+        } else {
+          state.alzados.push(...svgs);
+        }
+      }
+      renderFiles();
+      clearStatus();
+    }
+    function removeFile(target, idx) {
+      if (target === "planta") state.planta = [];
+      else state.alzados.splice(idx, 1);
+      renderFiles();
+    }
+    function renderFiles() {
+      renderFilesFor("planta", state.planta);
+      renderFilesFor("alzados", state.alzados);
+    }
+    function renderFilesFor(target, files) {
+      const cont = document.getElementById(`files-${target}`);
+      cont.innerHTML = "";
+      if (files.length === 0) {
+        const hint = document.createElement("div");
+        hint.className = "empty-hint";
+        hint.textContent = target === "planta" ? "ningún archivo seleccionado" : "ningún archivo";
+        cont.appendChild(hint);
+        return;
+      }
+      files.forEach((f, i) => {
+        const item = document.createElement("div");
+        item.className = "file-item";
+        item.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+          <span>${escapeHtml(f.name)}</span>
+          <span class="remove" title="Quitar">✕</span>
+        `;
+        item.querySelector(".remove").addEventListener("click", (e) => {
+          e.stopPropagation();
+          removeFile(target, i);
+        });
+        cont.appendChild(item);
+      });
+    }
+    setupDropzone("planta");
+    setupDropzone("alzados");
+    renderFiles();
+
+    // SUBMIT
     const form = document.getElementById("form");
     const status = document.getElementById("status");
     const btn = document.getElementById("btn");
-    const dropzone = document.getElementById("dropzone");
-    const fileInput = document.getElementById("svg");
-    const filename = document.getElementById("filename");
-    const planosEl = document.getElementById("planos");
-    const countEl = document.getElementById("count");
-
-    // Dropzone: click abre picker
-    function openPicker() { fileInput.click(); }
-    dropzone.addEventListener("click", openPicker);
-    dropzone.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPicker(); }
-    });
-
-    // Dropzone: drag & drop
-    dropzone.addEventListener("dragover", (e) => {
-      e.preventDefault();
-      dropzone.classList.add("dragover");
-    });
-    dropzone.addEventListener("dragleave", () => {
-      dropzone.classList.remove("dragover");
-    });
-    dropzone.addEventListener("drop", (e) => {
-      e.preventDefault();
-      dropzone.classList.remove("dragover");
-      const file = e.dataTransfer.files[0];
-      if (file) {
-        const dt = new DataTransfer();
-        dt.items.add(file);
-        fileInput.files = dt.files;
-        showFilename(file.name);
-      }
-    });
-    fileInput.addEventListener("change", () => {
-      if (fileInput.files[0]) showFilename(fileInput.files[0].name);
-    });
-    function showFilename(name) {
-      filename.textContent = `✓ ${name}`;
-      filename.style.display = "inline-block";
-    }
-    function clearFilename() {
-      filename.textContent = "";
-      filename.style.display = "none";
-    }
-
-    // Submit
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       status.innerHTML = "";
+      if (state.planta.length === 0) { showStatusError("Falta subir la planta."); return; }
+      if (state.alzados.length === 0) { showStatusError("Falta subir al menos un alzado."); return; }
       btn.disabled = true;
-      btn.querySelector("span").textContent = "Subiendo...";
-      const fd = new FormData(form);
+      btn.querySelector("span").textContent = "Creando...";
+      syncInputs();
+      const fd = new FormData();
+      fd.append("planta", state.planta[0]);
+      for (const f of state.alzados) fd.append("alzados", f);
+      fd.append("name", document.getElementById("project-name").value.trim());
+      fd.append("alturaCm", document.getElementById("altura").value);
       try {
-        const res = await fetch("/upload", { method: "POST", body: fd });
+        const res = await fetch("/api/projects", { method: "POST", body: fd });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Error desconocido");
         status.innerHTML = `
@@ -747,95 +557,111 @@
               <polyline points="22 4 12 14.01 9 11.01"/>
             </svg>
             <div class="body">
-              <p>Vista 3D generada</p>
-              <p>Dimensiones: <strong>${data.bounds.widthCm}</strong> × <strong>${data.bounds.heightCm}</strong> cm · altura extruida <strong>${data.heightCm}</strong> cm</p>
+              <p>Proyecto creado: ${escapeHtml(data.name)}</p>
+              <p>Planta: <strong>${data.planta.widthCm}</strong> × <strong>${data.planta.heightCm}</strong> cm · altura <strong>${data.alturaCm}</strong> cm · ${data.alzados.length} alzado(s)</p>
               <p><a href="${data.viewUrl}">Abrir vista 3D →</a></p>
               <p>URL compartible: <code>${location.origin}${data.viewUrl}</code></p>
             </div>
           </div>
         `;
-        fileInput.value = "";
-        clearFilename();
-        await refreshPlanos();
+        form.reset();
+        state.planta = [];
+        state.alzados = [];
+        renderFiles();
+        await refreshProjects();
       } catch (err) {
-        status.innerHTML = `
-          <div class="alert alert-error">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="12" y1="8" x2="12" y2="12"/>
-              <line x1="12" y1="16" x2="12.01" y2="16"/>
-            </svg>
-            <div class="body">${escapeHtml(err.message)}</div>
-          </div>
-        `;
+        showStatusError(err.message);
       } finally {
         btn.disabled = false;
-        btn.querySelector("span").textContent = "Generar vista 3D";
+        btn.querySelector("span").textContent = "Crear proyecto";
       }
     });
+    function syncInputs() {
+      syncInput("planta", state.planta);
+      syncInput("alzados", state.alzados);
+    }
+    function syncInput(target, files) {
+      const input = document.getElementById(`file-${target}`);
+      const dt = new DataTransfer();
+      for (const f of files) dt.items.add(f);
+      input.files = dt.files;
+    }
+    function showStatusError(msg) {
+      status.innerHTML = `
+        <div class="alert alert-error">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <div class="body">${escapeHtml(msg)}</div>
+        </div>
+      `;
+    }
+    function clearStatus() { status.innerHTML = ""; }
 
-    // Lista de planos
-    async function refreshPlanos() {
+    // PROJECTS LIST
+    async function refreshProjects() {
       try {
-        const res = await fetch("/api/list");
+        const res = await fetch("/api/projects");
         const data = await res.json();
-        renderPlanos(data.planos);
+        renderProjects(data.projects);
       } catch (err) {
-        planosEl.innerHTML = `<div class="alert alert-error"><div class="body">${escapeHtml(err.message)}</div></div>`;
+        document.getElementById("projects").innerHTML = `<div class="alert alert-error"><div class="body">${escapeHtml(err.message)}</div></div>`;
       }
     }
-    function renderPlanos(planos) {
-      countEl.textContent = planos.length > 0 ? `(${planos.length})` : "";
-      if (planos.length === 0) {
-        planosEl.innerHTML = `<div class="planos-empty">No hay planos todavía. Sube el primero arriba.</div>`;
+    function renderProjects(projects) {
+      const cont = document.getElementById("projects");
+      const countEl = document.getElementById("count");
+      countEl.textContent = projects.length > 0 ? `(${projects.length})` : "";
+      if (projects.length === 0) {
+        cont.innerHTML = `<div class="projects-empty">No hay proyectos todavía. Crea el primero arriba.</div>`;
         return;
       }
-      planosEl.innerHTML = "";
-      for (const p of planos) {
+      cont.innerHTML = "";
+      for (const p of projects) {
         const div = document.createElement("div");
-        div.className = "plano";
+        div.className = "project";
         const date = new Date(p.createdAt);
         const datestr = date.toLocaleString("es-ES", { dateStyle: "short", timeStyle: "short" });
         div.innerHTML = `
-          <div class="plano-thumb">
+          <div class="project-thumb">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/>
             </svg>
           </div>
-          <div class="plano-info">
-            <div class="name">${p.widthCm} × ${p.heightCm} cm</div>
-            <div class="meta">${datestr} · ${p.id.slice(0, 8)}</div>
+          <div class="project-info">
+            <div class="name">${escapeHtml(p.name)}</div>
+            <div class="meta">${datestr} · ${p.planta.widthCm}×${p.planta.heightCm} cm · ${p.alzadosCount} alzado(s)</div>
           </div>
-          <div class="plano-actions">
+          <div class="project-actions">
             <a href="${p.viewUrl}" class="btn btn-secondary">Ver</a>
-            <button class="btn btn-danger" data-id="${p.id}">Borrar</button>
+            <button class="btn btn-danger">Borrar</button>
           </div>
         `;
-        div.querySelector("button.btn-danger").addEventListener("click", () => borrar(p.id, p.widthCm, p.heightCm));
-        planosEl.appendChild(div);
+        div.querySelector("button.btn-danger").addEventListener("click", () => borrar(p.id, p.name));
+        cont.appendChild(div);
       }
     }
-    async function borrar(id, w, h) {
-      if (!confirm(`¿Borrar el plano ${w}×${h} cm? Esta acción no se puede deshacer.`)) return;
+    async function borrar(id, name) {
+      if (!confirm(`¿Borrar el proyecto "${name}"? Esta acción no se puede deshacer.`)) return;
       try {
-        const res = await fetch(`/api/svg/${id}`, { method: "DELETE" });
+        const res = await fetch(`/api/projects/${id}`, { method: "DELETE" });
         if (!res.ok) {
           const data = await res.json();
           throw new Error(data.error || "Error al borrar");
         }
-        await refreshPlanos();
+        await refreshProjects();
       } catch (err) {
         alert(`✗ ${err.message}`);
       }
     }
-
     function escapeHtml(s) {
       return String(s).replace(/[&<>"']/g, c => ({
         "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
       }[c]));
     }
-
-    refreshPlanos();
+    refreshProjects();
   </script>
 </body>
 </html>
