@@ -1395,7 +1395,6 @@ if (params.get("seed")) {
   }
   saveMP(mp);
 }
-
 // --- Helpers ---------------------------------------------------------------
 /**
  * Parsea un path SVG devolviendo TODOS los sub-paths.
