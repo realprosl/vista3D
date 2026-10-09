@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 900" width="1100" height="900">
+  <path d="M 50 50 L 1050 50 L 1050 850 L 50 850 Z" fill="#f5e6c8" stroke="#333" stroke-width="3"/>
+  <line x1="300" y1="50" x2="300" y2="450" stroke="#5a3a1a" stroke-width="3"/>
+  <line x1="300" y1="450" x2="605" y2="450" stroke="#5a3a1a" stroke-width="3"/>
+  <line x1="695" y1="450" x2="1050" y2="450" stroke="#5a3a1a" stroke-width="3"/>
+  <line x1="900" y1="450" x2="900" y2="840" stroke="#5a3a1a" stroke-width="3"/>
+  <line x1="900" y1="960" x2="900" y2="850" stroke="#5a3a1a" stroke-width="3"/>
+  <line x1="900" y1="50" x2="900" y2="undefined" stroke="#5a3a1a" stroke-width="3"/>
+  <line x1="900" y1="undefined" x2="900" y2="450" stroke="#5a3a1a" stroke-width="3"/>
+  <text x="200" y="250" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="600" fill="#333">Salón-Cocina</text>
+  <text x="550" y="650" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="600" fill="#333">Dormitorio</text>
+  <circle cx="650" cy="450" r="4" fill="#c44"/>
+  <text x="658" y="444" font-family="sans-serif" font-size="11" fill="#c44">Puerta 90cm</text>
+  <circle cx="900" cy="450" r="4" fill="#c44"/>
+  <text x="908" y="444" font-family="sans-serif" font-size="11" fill="#c44">V2 120cm</text>
+  <circle cx="1050" cy="900" r="4" fill="#c44"/>
+  <text x="1058" y="894" font-family="sans-serif" font-size="11" fill="#c44">V1 120cm</text>
+  
+  <line x1="50" y1="20" x2="1050" y2="20" stroke="#888" stroke-width="1"/>
+  <text x="550" y="10" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#666">1000 cm</text>
+  <line x1="20" y1="50" x2="20" y2="850" stroke="#888" stroke-width="1"/>
+  <text x="10" y="450" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#666" transform="rotate(-90 10 450)">800 cm</text>
+  
+</svg>

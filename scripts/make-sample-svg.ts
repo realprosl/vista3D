@@ -176,3 +176,160 @@ console.log("");
 console.log("Para descargar:");
 console.log("  http://194.163.184.142:8080/public/samples/sample-room.svg");
 console.log("  http://194.163.184.142:8080/public/samples/piso-3hab.svg");
+
+// =============================================================================
+// PROYECTO DEMO: casa unifamiliar 10m x 8m con puerta + 2 ventanas
+// =============================================================================
+const DEMO_DIR = join(outDir, "proyecto-demo");
+mkdirSync(DEMO_DIR, { recursive: true });
+
+const demoOx = 50, demoOy = 50;
+const W = 1000, H = 800;
+const ALTO = 250;
+const puertaAnchoCm = 90;
+const puertaAltoCm = 210;
+const ventanaAnchoCm = 120;
+const ventanaAltoCm = 120;
+const ventanaAntepechoCm = 90;
+
+// PLANTA
+{
+  const path = join(DEMO_DIR, "planta.svg");
+  const exterior = [
+    [demoOx, demoOy],
+    [demoOx + W, demoOy],
+    [demoOx + W, demoOy + H],
+    [demoOx, demoOy + H],
+  ];
+  const puerta = { x1: demoOx + 555, x2: demoOx + 645 };
+  const ventana1 = { y1: demoOy + 790, y2: demoOy + 910 };
+  const ventana2 = { x1: demoOx + 790, x2: demoOx + 910 };
+
+  function segmentarH(x, y1, y2, puerta) {
+    const out = [];
+    if (puerta) {
+      out.push(`<line x1="${x}" y1="${y1}" x2="${x}" y2="${puerta.y1}" stroke="#5a3a1a" stroke-width="3"/>`);
+      out.push(`<line x1="${x}" y1="${puerta.y2}" x2="${x}" y2="${y2}" stroke="#5a3a1a" stroke-width="3"/>`);
+    } else {
+      out.push(`<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="#5a3a1a" stroke-width="3"/>`);
+    }
+    return out.join("\n  ");
+  }
+  function segmentarV(y, x1, x2, ventana) {
+    const out = [];
+    if (ventana) {
+      out.push(`<line x1="${x1}" y1="${y}" x2="${ventana.x1}" y2="${y}" stroke="#5a3a1a" stroke-width="3"/>`);
+      out.push(`<line x1="${ventana.x2}" y1="${y}" x2="${x2}" y2="${y}" stroke="#5a3a1a" stroke-width="3"/>`);
+    } else {
+      out.push(`<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="#5a3a1a" stroke-width="3"/>`);
+    }
+    return out.join("\n  ");
+  }
+
+  const labels = [
+    { x: demoOx + 150, y: demoOy + 200, text: "Salón-Cocina" },
+    { x: demoOx + 500, y: demoOy + 600, text: "Dormitorio" },
+  ];
+  const labelSvg = labels.map(l =>
+    `<text x="${l.x}" y="${l.y}" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="600" fill="#333">${l.text}</text>`
+  ).join("\n  ");
+
+  const aperturas = [
+    { x: demoOx + 600, y: demoOy + 400, text: "Puerta 90cm" },
+    { x: demoOx + 850, y: demoOy + 400, text: "V2 120cm" },
+    { x: demoOx + W, y: demoOy + 850, text: "V1 120cm" },
+  ];
+  const aperturaSvg = aperturas.map(a =>
+    `<circle cx="${a.x}" cy="${a.y}" r="4" fill="#c44"/>\n  <text x="${a.x + 8}" y="${a.y - 6}" font-family="sans-serif" font-size="11" fill="#c44">${a.text}</text>`
+  ).join("\n  ");
+
+  const cotas = `
+  <line x1="${demoOx}" y1="${demoOy - 30}" x2="${demoOx + W}" y2="${demoOy - 30}" stroke="#888" stroke-width="1"/>
+  <text x="${demoOx + W / 2}" y="${demoOy - 40}" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#666">${W} cm</text>
+  <line x1="${demoOx - 30}" y1="${demoOy}" x2="${demoOx - 30}" y2="${demoOy + H}" stroke="#888" stroke-width="1"/>
+  <text x="${demoOx - 40}" y="${demoOy + H / 2}" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#666" transform="rotate(-90 ${demoOx - 40} ${demoOy + H / 2})">${H} cm</text>
+  `;
+
+  const pathD = `M ${exterior[0][0]} ${exterior[0][1]} L ${exterior[1][0]} ${exterior[1][1]} L ${exterior[2][0]} ${exterior[2][1]} L ${exterior[3][0]} ${exterior[3][1]} Z`;
+
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W + 100} ${H + 100}" width="${W + 100}" height="${H + 100}">
+  <path d="${pathD}" fill="#f5e6c8" stroke="#333" stroke-width="3"/>
+  ${segmentarH(demoOx + 250, demoOy, demoOy + 400, null)}
+  ${segmentarV(demoOy + 400, demoOx + 250, demoOx + W, puerta)}
+  ${segmentarH(demoOx + 850, demoOy + 400, demoOy + H, ventana1)}
+  ${segmentarH(demoOx + 850, demoOy, demoOy + 400, ventana2)}
+  ${labelSvg}
+  ${aperturaSvg}
+  ${cotas}
+</svg>
+`;
+  writeFileSync(path, svg, "utf-8");
+  console.log(`OK: ${path} (planta 10x8m)`);
+}
+
+// ALZADO NORTE
+{
+  const path = join(DEMO_DIR, "alzado-norte.svg");
+  const W2 = 1000, H2 = ALTO;
+  const puertaX = (W2 - puertaAnchoCm) / 2;
+  const puertaY = 0;
+  const ventana1X = 100;
+  const ventana1Y = ventanaAntepechoCm;
+  const ventana2X = W2 - ventanaAnchoCm - 100;
+  const ventana2Y = ventanaAntepechoCm;
+
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W2} ${H2}" width="${W2}" height="${H2}" data-wall="N" data-wall-width="1000">
+  <line x1="0" y1="0" x2="${W2}" y2="0" stroke="#333" stroke-width="4"/>
+  <line x1="0" y1="${H2 - 2}" x2="${W2}" y2="${H2 - 2}" stroke="#333" stroke-width="2"/>
+  <rect x="${puertaX}" y="${puertaY}" width="${puertaAnchoCm}" height="${puertaAltoCm}" fill="#ffffff" stroke="#5a3a1a" stroke-width="3" data-kind="door"/>
+  <path d="M ${puertaX + puertaAnchoCm} ${puertaY} A ${puertaAnchoCm} ${puertaAltoCm} 0 0 1 ${puertaX + puertaAnchoCm} ${puertaY + puertaAltoCm}" fill="none" stroke="#5a3a1a" stroke-width="2" stroke-dasharray="4 3"/>
+  <rect x="${ventana1X}" y="${ventana1Y}" width="${ventanaAnchoCm}" height="${ventanaAltoCm}" fill="#cce4ff" stroke="#5a3a1a" stroke-width="3" data-kind="window"/>
+  <line x1="${ventana1X + ventanaAnchoCm / 2}" y1="${ventana1Y}" x2="${ventana1X + ventanaAnchoCm / 2}" y2="${ventana1Y + ventanaAltoCm}" stroke="#5a3a1a" stroke-width="1.5"/>
+  <line x1="${ventana1X}" y1="${ventana1Y + ventanaAltoCm / 2}" x2="${ventana1X + ventanaAnchoCm}" y2="${ventana1Y + ventanaAltoCm / 2}" stroke="#5a3a1a" stroke-width="1.5"/>
+  <rect x="${ventana2X}" y="${ventana2Y}" width="${ventanaAnchoCm}" height="${ventanaAltoCm}" fill="#cce4ff" stroke="#5a3a1a" stroke-width="3" data-kind="window"/>
+  <line x1="${ventana2X + ventanaAnchoCm / 2}" y1="${ventana2Y}" x2="${ventana2X + ventanaAnchoCm / 2}" y2="${ventana2Y + ventanaAltoCm}" stroke="#5a3a1a" stroke-width="1.5"/>
+  <line x1="${ventana2X}" y1="${ventana2Y + ventanaAltoCm / 2}" x2="${ventana2X + ventanaAnchoCm}" y2="${ventana2Y + ventanaAltoCm / 2}" stroke="#5a3a1a" stroke-width="1.5"/>
+  <text x="${puertaX + puertaAnchoCm / 2}" y="${puertaY + puertaAltoCm + 20}" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#666">Puerta ${puertaAnchoCm}×${puertaAltoCm}cm</text>
+  <text x="${ventana1X + ventanaAnchoCm / 2}" y="${ventana1Y - 8}" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#666">V ${ventanaAnchoCm}×${ventanaAltoCm}cm</text>
+  <text x="${ventana2X + ventanaAnchoCm / 2}" y="${ventana2Y - 8}" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#666">V ${ventanaAnchoCm}×${ventanaAltoCm}cm</text>
+  <line x1="${W2 + 10}" y1="0" x2="${W2 + 10}" y2="${H2}" stroke="#888" stroke-width="1"/>
+  <text x="${W2 + 18}" y="${H2 / 2}" font-family="sans-serif" font-size="14" fill="#666">${H2} cm</text>
+</svg>
+`;
+  writeFileSync(path, svg, "utf-8");
+  console.log(`OK: ${path} (fachada norte)`);
+}
+
+// ALZADO SUR
+{
+  const path = join(DEMO_DIR, "alzado-sur.svg");
+  const W2 = 1000, H2 = ALTO;
+  const ventana1X = 200;
+  const ventana1Y = ventanaAntepechoCm;
+  const ventana2X = W2 - ventanaAnchoCm - 200;
+  const ventana2Y = ventanaAntepechoCm;
+
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W2} ${H2}" width="${W2}" height="${H2}" data-wall="S" data-wall-width="1000">
+  <line x1="0" y1="0" x2="${W2}" y2="0" stroke="#333" stroke-width="4"/>
+  <line x1="0" y1="${H2 - 2}" x2="${W2}" y2="${H2 - 2}" stroke="#333" stroke-width="2"/>
+  <rect x="${ventana1X}" y="${ventana1Y}" width="${ventanaAnchoCm}" height="${ventanaAltoCm}" fill="#cce4ff" stroke="#5a3a1a" stroke-width="3" data-kind="window"/>
+  <line x1="${ventana1X + ventanaAnchoCm / 2}" y1="${ventana1Y}" x2="${ventana1X + ventanaAnchoCm / 2}" y2="${ventana1Y + ventanaAltoCm}" stroke="#5a3a1a" stroke-width="1.5"/>
+  <line x1="${ventana1X}" y1="${ventana1Y + ventanaAltoCm / 2}" x2="${ventana1X + ventanaAnchoCm}" y2="${ventana1Y + ventanaAltoCm / 2}" stroke="#5a3a1a" stroke-width="1.5"/>
+  <rect x="${ventana2X}" y="${ventana2Y}" width="${ventanaAnchoCm}" height="${ventanaAltoCm}" fill="#cce4ff" stroke="#5a3a1a" stroke-width="3" data-kind="window"/>
+  <line x1="${ventana2X + ventanaAnchoCm / 2}" y1="${ventana2Y}" x2="${ventana2X + ventanaAnchoCm / 2}" y2="${ventana2Y + ventanaAltoCm}" stroke="#5a3a1a" stroke-width="1.5"/>
+  <line x1="${ventana2X}" y1="${ventana2Y + ventanaAltoCm / 2}" x2="${ventana2X + ventanaAnchoCm}" y2="${ventana2Y + ventanaAltoCm / 2}" stroke="#5a3a1a" stroke-width="1.5"/>
+  <text x="${ventana1X + ventanaAnchoCm / 2}" y="${ventana1Y - 8}" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#666">V1 ${ventanaAnchoCm}×${ventanaAltoCm}cm</text>
+  <text x="${ventana2X + ventanaAnchoCm / 2}" y="${ventana2Y - 8}" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#666">V2 ${ventanaAnchoCm}×${ventanaAltoCm}cm</text>
+  <line x1="${W2 + 10}" y1="0" x2="${W2 + 10}" y2="${H2}" stroke="#888" stroke-width="1"/>
+  <text x="${W2 + 18}" y="${H2 / 2}" font-family="sans-serif" font-size="14" fill="#666">${H2} cm</text>
+</svg>
+`;
+  writeFileSync(path, svg, "utf-8");
+  console.log(`OK: ${path} (fachada sur)`);
+}
+
+console.log("");
+console.log("Proyecto demo en public/samples/proyecto-demo/");
