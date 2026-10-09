@@ -7,8 +7,8 @@
     * { box-sizing: border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      max-width: 640px;
-      margin: 60px auto;
+      max-width: 720px;
+      margin: 40px auto;
       padding: 0 20px;
       color: #222;
     }
@@ -22,7 +22,6 @@
       background: #fafafa;
     }
     label { display: block; font-weight: 600; margin-bottom: 6px; }
-    input[type="file"] { margin: 8px 0 16px; }
     input[type="number"] {
       width: 100px; padding: 6px; border: 1px solid #ccc; border-radius: 4px;
     }
@@ -30,8 +29,30 @@
       background: #2a7ae2; color: white; border: 0;
       padding: 10px 20px; border-radius: 4px; font-size: 16px; cursor: pointer;
     }
+    button.secondary { background: #888; }
+    button.danger { background: #c44; }
     button:disabled { background: #999; cursor: not-allowed; }
-    button:hover:not(:disabled) { background: #1d5dbf; }
+    button:hover:not(:disabled) { filter: brightness(0.9); }
+    /* Drop zone */
+    .dropzone {
+      border: 2px dashed #aaa;
+      border-radius: 8px;
+      padding: 40px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s;
+      background: #fff;
+    }
+    .dropzone:hover, .dropzone.dragover {
+      border-color: #2a7ae2;
+      background: #eef4ff;
+    }
+    .dropzone .big {
+      font-size: 18px; color: #666; margin-bottom: 4px;
+    }
+    .dropzone .small { font-size: 13px; color: #999; }
+    .dropzone input[type=file] { display: none; }
+    /* Status */
     #status { margin-top: 16px; }
     .success { color: #2a7; font-weight: 600; }
     .error { color: #c33; font-weight: 600; }
@@ -40,6 +61,23 @@
       background: #eef; border-radius: 4px; text-decoration: none; color: #27c;
     }
     .small { font-size: 13px; color: #888; }
+    /* Planos list */
+    .plano {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px; border: 1px solid #eee; border-radius: 6px;
+      background: #fff; margin-bottom: 8px;
+    }
+    .plano-info { flex: 1; }
+    .plano-info strong { display: block; }
+    .plano-info span { color: #888; font-size: 13px; }
+    .plano-actions { display: flex; gap: 6px; }
+    .plano-actions a, .plano-actions button {
+      padding: 6px 12px; font-size: 13px; text-decoration: none;
+      color: white; border-radius: 4px;
+    }
+    .plano-actions a { background: #2a7ae2; }
+    .plano-actions button.danger { background: #c44; }
+    h2 { font-size: 18px; margin: 0 0 12px; }
   </style>
 </head>
 <body>
@@ -48,17 +86,28 @@
 
   <div class="card">
     <form id="form">
-      <label for="svg">Plano SVG</label>
-      <input type="file" id="svg" name="svg" accept=".svg,image/svg+xml" required>
-      <p class="small">Acepta <code>&lt;path d="M L Z"&gt;</code>, <code>&lt;polygon&gt;</code> o <code>&lt;rect&gt;</code>.</p>
+      <label>Plano SVG (arrastra o haz click)</label>
+      <div class="dropzone" id="dropzone">
+        <div class="big">Arrastra aquí tu archivo .svg</div>
+        <div class="small">o haz click para seleccionar</div>
+        <div id="filename" class="small" style="margin-top: 8px; color: #2a7ae2;"></div>
+        <input type="file" id="svg" name="svg" accept=".svg,image/svg+xml" required>
+      </div>
 
-      <label for="altura">Altura de extrusión (cm)</label>
-      <input type="number" id="altura" name="alturaCm" value="250" min="10" max="9999" step="10">
-      <p class="small">250 = 2.5 metros (típico para una habitación).</p>
+      <div style="margin-top: 16px;">
+        <label for="altura">Altura de extrusión (cm)</label>
+        <input type="number" id="altura" name="alturaCm" value="250" min="10" max="9999" step="10">
+        <span class="small">250 = 2.5 metros (típico para una habitación).</span>
+      </div>
 
-      <button type="submit" id="btn">Generar vista 3D</button>
+      <button type="submit" id="btn" style="margin-top: 16px;">Generar vista 3D</button>
     </form>
     <div id="status"></div>
+  </div>
+
+  <div class="card">
+    <h2>Planos guardados <span class="small" id="count"></span></h2>
+    <div id="planos"><p class="small">Cargando...</p></div>
   </div>
 
   <p class="small">
@@ -71,13 +120,48 @@
     const form = document.getElementById("form");
     const status = document.getElementById("status");
     const btn = document.getElementById("btn");
+    const dropzone = document.getElementById("dropzone");
+    const fileInput = document.getElementById("svg");
+    const filename = document.getElementById("filename");
+    const planosEl = document.getElementById("planos");
+    const countEl = document.getElementById("count");
 
+    // Click en dropzone abre el file picker
+    dropzone.addEventListener("click", () => fileInput.click());
+    // Drag & drop
+    dropzone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropzone.classList.add("dragover");
+    });
+    dropzone.addEventListener("dragleave", () => {
+      dropzone.classList.remove("dragover");
+    });
+    dropzone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropzone.classList.remove("dragover");
+      const file = e.dataTransfer.files[0];
+      if (file) {
+        // Truco: transferimos el archivo al input para que el FormData lo recoja.
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        fileInput.files = dt.files;
+        showFilename(file.name);
+      }
+    });
+    // Cambio manual en el input (click + seleccionar)
+    fileInput.addEventListener("change", () => {
+      if (fileInput.files[0]) showFilename(fileInput.files[0].name);
+    });
+    function showFilename(name) {
+      filename.textContent = `✓ ${name}`;
+    }
+
+    // Submit (upload)
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       status.innerHTML = "";
       btn.disabled = true;
       btn.textContent = "Subiendo...";
-
       const fd = new FormData(form);
       try {
         const res = await fetch("/upload", { method: "POST", body: fd });
@@ -91,6 +175,10 @@
           <a class="link" href="${data.viewUrl}">Abrir vista 3D →</a>
           <p class="small" style="margin-top: 12px;">URL compartible: <code>${location.origin}${data.viewUrl}</code></p>
         `;
+        // Reset y refrescar lista
+        fileInput.value = "";
+        filename.textContent = "";
+        await refreshPlanos();
       } catch (err) {
         status.innerHTML = `<p class="error">✗ ${err.message}</p>`;
       } finally {
@@ -98,6 +186,59 @@
         btn.textContent = "Generar vista 3D";
       }
     });
+
+    // Lista de planos
+    async function refreshPlanos() {
+      try {
+        const res = await fetch("/api/list");
+        const data = await res.json();
+        renderPlanos(data.planos);
+      } catch (err) {
+        planosEl.innerHTML = `<p class="error">✗ ${err.message}</p>`;
+      }
+    }
+    function renderPlanos(planos) {
+      countEl.textContent = `(${planos.length})`;
+      if (planos.length === 0) {
+        planosEl.innerHTML = `<p class="small">No hay planos todavía. Sube el primero arriba.</p>`;
+        return;
+      }
+      planosEl.innerHTML = "";
+      for (const p of planos) {
+        const div = document.createElement("div");
+        div.className = "plano";
+        const date = new Date(p.createdAt);
+        const datestr = date.toLocaleString("es-ES", { dateStyle: "short", timeStyle: "short" });
+        div.innerHTML = `
+          <div class="plano-info">
+            <strong>${p.widthCm} × ${p.heightCm} cm</strong>
+            <span>${datestr} · id: <code>${p.id.slice(0, 8)}</code></span>
+          </div>
+          <div class="plano-actions">
+            <a href="${p.viewUrl}">Ver</a>
+            <button class="danger" data-id="${p.id}">Borrar</button>
+          </div>
+        `;
+        div.querySelector("button.danger").addEventListener("click", () => borrar(p.id, p.widthCm, p.heightCm));
+        planosEl.appendChild(div);
+      }
+    }
+    async function borrar(id, w, h) {
+      if (!confirm(`¿Borrar el plano ${w}×${h}cm? Esta acción no se puede deshacer.`)) return;
+      try {
+        const res = await fetch(`/api/svg/${id}`, { method: "DELETE" });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || "Error al borrar");
+        }
+        await refreshPlanos();
+      } catch (err) {
+        alert(`✗ ${err.message}`);
+      }
+    }
+
+    // Carga inicial
+    refreshPlanos();
   </script>
 </body>
 </html>

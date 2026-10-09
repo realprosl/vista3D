@@ -21,6 +21,14 @@
     }
     #error h1 { color: #c33; margin: 0 0 8px; }
     canvas { display: block; }
+    #back {
+      position: absolute; top: 10px; right: 10px;
+      background: rgba(255,255,255,0.9); padding: 8px 14px;
+      border-radius: 6px; font-size: 13px; color: #333;
+      text-decoration: none; font-weight: 600;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    #back:hover { background: #fff; color: #2a7ae2; }
   </style>
 </head>
 <body>
@@ -29,6 +37,7 @@
     <p>Arrastra para rotar, scroll para zoom, click derecho para mover.</p>
     <p id="dims">Cargando...</p>
   </div>
+  <a id="back" href="/" title="Volver a la página de inicio">← Volver</a>
   <div id="error" style="display:none">
     <h1>Error</h1>
     <p id="err-msg"></p>
