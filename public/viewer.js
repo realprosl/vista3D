@@ -1367,18 +1367,24 @@ document.getElementById("mp-reset")?.addEventListener("click", () => {
 if (params.get("seed")) {
   const t = params.get("seed");
   for (const key of MP_KEYS) {
-    if (key.startsWith("wall-ext:") || key === "suelo" || key === "pared-default-ext") {
-      mp[key].texture = t;
-      applyMPToMesh(key, mp[key]);
+    if (key.startsWith("wall:") || key.startsWith("door:") || key.startsWith("window:") || key.startsWith("hole:")
+        || key === "suelo" || key === "pared-default-ext") {
+      // Solo aplicar a la cara exterior (fachada) de paredes y al suelo.
+      if (key.endsWith(":exterior") || key === "suelo") {
+        mp[key].texture = t;
+        applyMPToMesh(key, mp[key]);
+      }
     }
   }
   // Tambien actualizar el <select> del DOM para que el panel refleje
   // la nueva textura.
-  for (const key of ["suelo", ...wallList.map(w => "wall-ext:" + w.id)]) {
-    const sel = document.querySelector(`.mp-wall-tex[data-pid="${key}"]`);
-    const inp = document.getElementById("mp-" + key + "-texture");
-    if (sel) sel.value = mp[key].texture;
-    if (inp) inp.value = mp[key].texture;
+  for (const key of ["suelo", ...wallList.map(w => "wall:" + w.id + ":exterior")]) {
+    const inp = document.querySelector(`.mp-color[data-pid="${key}"]`);
+    if (inp) {
+      // El selector de textura esta en el mismo bloque; lo buscamos.
+      const texInp = document.querySelector(`.mp-tex[data-pid="${key}"]`);
+      if (texInp) texInp.value = mp[key]?.texture || "liso";
+    }
   }
   saveMP(mp);
 }
