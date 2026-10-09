@@ -1109,64 +1109,11 @@ controls.target.set(widthCm / 2, alturaCm / 2, heightCm / 2);
 controls.update();
 
   // Mueve la camara para enfocar la cara seleccionada de un elemento.
-// Para Cara A: orbita para que se vea la cara "frontal" (lado positivo de la normal).
-// Para Cara B: orbita al lado opuesto (la cara trasera / interior).
-// Para Cara C: vista cenital (top-down) para ver el canto del muro.
+// Desactivado: el muro es un Shape 2D extruido a grosor 0, asi que la
+// camara quedaba dentro del muro y veia solo geometria rara.
+// El usuario mueve la camara con el raton si quiere ver otra cara.
 function focusOnFace(key) {
-  const parts = key.split(":");
-  if (parts.length !== 3) return;
-  const [tipo, id, face] = parts;
-  if (tipo !== "wall") return; // solo paredes tienen orientacion definida
-
-  // Obtener el mesh de la pared
-  const meshes = wallMeshLookup.get(id + "_meshes") || [];
-  if (meshes.length === 0) return;
-  const mesh = meshes[0];
-
-  // Calcular el bounding box en el mundo.
-  mesh.geometry.computeBoundingBox();
-  const worldBB = new THREE.Box3().setFromObject(mesh);
-  const c = new THREE.Vector3();
-  worldBB.getCenter(c);
-  const height = worldBB.max.y - worldBB.min.y;
-
-  // Vector a lo largo del muro en el plano XZ.
-  const dx = worldBB.max.x - worldBB.min.x;
-  const dz = worldBB.max.z - worldBB.min.z;
-
-  // Para Cara A/B: ponemos la camara MUY cerca del muro (pegada a la
-  // superficie) para que el muro a editar ocupe toda la vista y no se
-  // confundan con otros muros en la escena.
-  controls.target.set(c.x, c.y, c.z);
-
-  if (face === "cara-c") {
-    // Vista top-down casi cenital para ver el canto del muro.
-    const dist = Math.max(height * 1.5, 500);
-    camera.position.set(c.x + dist * 0.3, c.y + dist * 0.9, c.z + dist * 0.3);
-  } else if (face === "cara-a" || face === "cara-b") {
-    // Vista perpendicular al muro, pegada a la superficie.
-    // Usamos una distancia pequena (la mitad del alto del muro) para
-    // evitar atravesar otros elementos de la escena.
-    const dist = height * 0.7;
-    let perpX, perpZ;
-    if (dx > dz) {
-      // Muro paralelo a X (más ancho en X) → perpendicular en Z
-      perpX = 0;
-      perpZ = face === "cara-a" ? 1 : -1;
-    } else {
-      // Muro paralelo a Z (más ancho en Z) → perpendicular en X
-      perpX = face === "cara-a" ? 1 : -1;
-      perpZ = 0;
-    }
-    // Posicionar la camara MUY cerca del muro, ligeramente fuera, mirando
-    // hacia el centro del muro. Asi el muro a editar ocupa toda la vista.
-    camera.position.set(
-      c.x + perpX * (dist + 30),
-      c.y + height * 0.1,
-      c.z + perpZ * (dist + 30)
-    );
-  }
-  controls.update();
+  // No-op: no movemos la camara.
 }
 
 // En el render loop.
