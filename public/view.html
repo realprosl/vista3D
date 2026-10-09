@@ -384,6 +384,46 @@
       padding: 4px 6px;
       font-size: 12px;
     }
+    /* ---- Modo recorrido interno (FPS) ---- */
+    #fps-overlay {
+      position: fixed; inset: 0; pointer-events: none; z-index: 50;
+    }
+    #fps-overlay[hidden] { display: none; }
+    .fps-hud {
+      position: absolute; top: 70px; left: 16px;
+      background: rgba(20, 14, 8, 0.85);
+      color: #e8d8b8;
+      border: 1px solid rgba(232, 216, 184, 0.2);
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 12px;
+      line-height: 1.6;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+    .fps-hud .fps-title { font-weight: 600; margin-bottom: 6px; color: #f5ead2; }
+    .fps-hud .fps-row { color: rgba(232, 216, 184, 0.85); }
+    .fps-hud kbd {
+      display: inline-block;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 3px;
+      padding: 0 5px;
+      font-family: monospace;
+      font-size: 11px;
+    }
+    .fps-crosshair {
+      position: absolute; left: 50%; top: 50%;
+      transform: translate(-50%, -50%);
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 22px; font-weight: 300;
+      text-shadow: 0 0 3px rgba(0, 0, 0, 0.6);
+    }
+    /* En móvil el HUD tapa mucha pantalla; lo hacemos más pequeño */
+    @media (max-width: 480px) {
+      .fps-hud { font-size: 11px; padding: 8px 10px; }
+    }
+
     /* Cursor pointer cuando hay elemento bajo el ratón */
     canvas.pickable { cursor: pointer; }
 
@@ -423,6 +463,20 @@
 </head>
 <body>
   <div id="stage"></div>
+
+  <!-- Overlay de instrucciones del modo recorrido interno -->
+  <div id="fps-overlay" hidden>
+    <div class="fps-hud">
+      <div class="fps-title">🏠 Recorrido interno</div>
+      <div class="fps-row">W / ↑ &nbsp; Avanzar</div>
+      <div class="fps-row">S / ↓ &nbsp; Retroceder</div>
+      <div class="fps-row">A / ← &nbsp; Girar izquierda</div>
+      <div class="fps-row">D / → &nbsp; Girar derecha</div>
+      <div class="fps-row">Ratón &nbsp; Mirar alrededor</div>
+      <div class="fps-row">ESC &nbsp; Salir del recorrido</div>
+    </div>
+    <div class="fps-crosshair">+</div>
+  </div>
 
   <button id="sidebar-toggle" type="button" title="Abrir menú" aria-label="Abrir menú">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -502,9 +556,21 @@
             <span class="label">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="6" y="3" width="12" height="18" rx="1"/>
-                <line x1="6" y1="11" x2="18" y2="11"/>
+                <line x1="6" y1="11" x2="18" y1="11"/>
               </svg>
               Puertas y ventanas
+            </span>
+            <span class="indicator" aria-hidden="true"></span>
+          </button>
+          <button id="toggle-fps" class="toggle" type="button">
+            <span class="label">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12 L21 12"/>
+                <path d="M3 6 L21 6"/>
+                <path d="M3 18 L21 18"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              Recorrido interno (WASD)
             </span>
             <span class="indicator" aria-hidden="true"></span>
           </button>

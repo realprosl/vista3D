@@ -1108,6 +1108,141 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(widthCm / 2, alturaCm / 2, heightCm / 2);
 controls.update();
 
+// --- 7b) Modo recorrido interno (FPS) -------------------------------------
+// Camara en primera persona a 1.70m del suelo, dentro de la casa.
+// WASD/flechas para mover, raton para mirar, ESC para salir.
+let fpsActive = false;
+let fpsYaw = 0;     // rotacion horizontal (Y axis)
+let fpsPitch = 0;   // rotacion vertical (X axis)
+let fpsPos = new THREE.Vector3();
+let fpsKeys = { w: false, a: false, s: false, d: false };
+const FPS_HEIGHT_CM = 170;   // 1.70 m
+const FPS_MOVE_SPEED = 250;  // cm/s (2.5 m/s) - paso humano
+const FPS_TURN_SPEED = 1.8;  // rad/s
+const FPS_COLL_RADIUS = 25;  // cm: radio de colision con paredes
+
+// Construir una lista de AABBs (bounding boxes) de las paredes para
+// detectar colisiones. Cada pared se modela como un rectangulo en el
+// plano XZ con grosor en X o Z.
+function buildFpsCollider() {
+  const colliders = [];
+  for (const w of wallList) {
+    const meshes = wallMeshLookup.get(w.id + "_meshes") || [];
+    if (meshes.length === 0) continue;
+    // Usar el bounding box combinado de todos los meshes de la pared
+    const box = new THREE.Box3();
+    for (const m of meshes) {
+      m.geometry.computeBoundingBox();
+      box.expandByObject(m);
+    }
+    if (box.isEmpty()) continue;
+    // Expandir ligeramente para que la camara no se "pegue" a la pared
+    box.expandByScalar(2);
+    colliders.push(box);
+  }
+  return colliders;
+}
+let fpsColliders = [];
+
+// Funcion que dice si la posicion (x, z) esta dentro de alguna pared.
+// Si esta dentro, se considera que hay colision y el movimiento se anula.
+function fpsCollideAt(x, z) {
+  const p = new THREE.Vector3(x, FPS_HEIGHT_CM, z);
+  for (const box of fpsColliders) {
+    // Solo comprobar en el plano XZ a la altura de los ojos
+    if (x > box.min.x - FPS_COLL_RADIUS && x < box.max.x + FPS_COLL_RADIUS &&
+        z > box.min.z - FPS_COLL_RADIUS && z < box.max.z + FPS_COLL_RADIUS) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function fpsEnter() {
+  // Posicion inicial: centro de la casa, a 1.70m del suelo, mirando al sur
+  fpsPos.set(widthCm / 2, FPS_HEIGHT_CM, heightCm / 2);
+  // Sacar la camara a un sitio valido si estamos dentro de una pared
+  // (intentamos offsets en cruz hasta encontrar uno sin colision)
+  if (fpsCollideAt(fpsPos.x, fpsPos.z)) {
+    for (const off of [[100, 0], [-100, 0], [0, 100], [0, -100], [200, 0]]) {
+      const nx = fpsPos.x + off[0], nz = fpsPos.z + off[1];
+      if (!fpsCollideAt(nx, nz)) { fpsPos.x = nx; fpsPos.z = nz; break; }
+    }
+  }
+  // Yaw inicial = orientacion actual de la camara
+  const dir = new THREE.Vector3();
+  camera.getWorldDirection(dir);
+  fpsYaw = Math.atan2(-dir.x, -dir.z);
+  fpsPitch = 0;
+  fpsActive = true;
+  controls.enabled = false;
+  // Mostrar overlay
+  const ov = document.getElementById("fps-overlay");
+  if (ov) ov.hidden = false;
+  // Activar visualmente el boton
+  const btn = document.getElementById("toggle-fps");
+  if (btn) btn.classList.add("on");
+  // Cerrar el sidebar si esta abierto, para que no estorbe
+  document.body.classList.remove("sidebar-open");
+  // Bloquear el raton (pointer lock) para mirar
+  try { renderer.domElement.requestPointerLock(); } catch {}
+}
+
+function fpsExit() {
+  fpsActive = false;
+  controls.enabled = true;
+  const ov = document.getElementById("fps-overlay");
+  if (ov) ov.hidden = true;
+  const btn = document.getElementById("toggle-fps");
+  if (btn) btn.classList.remove("on");
+  try { document.exitPointerLock(); } catch {}
+}
+
+function fpsToggle() {
+  if (fpsActive) fpsExit();
+  else fpsEnter();
+}
+
+// Boton del sidebar
+const toggleFpsBtn = document.getElementById("toggle-fps");
+if (toggleFpsBtn) {
+  toggleFpsBtn.addEventListener("click", () => fpsToggle());
+}
+
+// Teclado: WASD/flechas
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && fpsActive) { fpsExit(); return; }
+  if (!fpsActive) return;
+  const k = e.key.toLowerCase();
+  if (k === "w" || k === "arrowup") fpsKeys.w = true;
+  if (k === "s" || k === "arrowdown") fpsKeys.s = true;
+  if (k === "a" || k === "arrowleft") fpsKeys.a = true;
+  if (k === "d" || k === "arrowright") fpsKeys.d = true;
+});
+window.addEventListener("keyup", (e) => {
+  if (!fpsActive) return;
+  const k = e.key.toLowerCase();
+  if (k === "w" || k === "arrowup") fpsKeys.w = false;
+  if (k === "s" || k === "arrowdown") fpsKeys.s = false;
+  if (k === "a" || k === "arrowleft") fpsKeys.a = false;
+  if (k === "d" || k === "arrowright") fpsKeys.d = false;
+});
+
+// Raton: mover la camara (yaw + pitch) cuando el puntero esta bloqueado
+document.addEventListener("mousemove", (e) => {
+  if (!fpsActive) return;
+  if (document.pointerLockElement !== renderer.domElement) return;
+  fpsYaw -= e.movementX * 0.0025;
+  fpsPitch -= e.movementY * 0.0025;
+  // Limitar el pitch para no dar vueltas de campana
+  const limit = Math.PI / 2 - 0.05;
+  if (fpsPitch > limit) fpsPitch = limit;
+  if (fpsPitch < -limit) fpsPitch = -limit;
+});
+
+// Construir los colliders tras cargar las paredes
+fpsColliders = buildFpsCollider();
+
   // Mueve la camara para enfocar la cara seleccionada de un elemento.
 // Desactivado: el muro es un Shape 2D extruido a grosor 0, asi que la
 // camara quedaba dentro del muro y veia solo geometria rara.
@@ -1117,9 +1252,51 @@ function focusOnFace(key) {
 }
 
 // En el render loop.
+let fpsLastT = performance.now();
 function animate() {
   requestAnimationFrame(animate);
-  controls.update();
+  const now = performance.now();
+  const dt = Math.min(0.1, (now - fpsLastT) / 1000); // segundos, max 100ms
+  fpsLastT = now;
+
+  if (fpsActive) {
+    // Movimiento WASD en el plano horizontal
+    let moveX = 0, moveZ = 0;
+    // W: hacia adelante en la direccion de la camara
+    if (fpsKeys.w) {
+      moveX += Math.sin(fpsYaw);
+      moveZ += Math.cos(fpsYaw);
+    }
+    if (fpsKeys.s) {
+      moveX -= Math.sin(fpsYaw);
+      moveZ -= Math.cos(fpsYaw);
+    }
+    // A: girar izquierda (rotacion)
+    // D: girar derecha (rotacion)
+    if (fpsKeys.a) fpsYaw += FPS_TURN_SPEED * dt;
+    if (fpsKeys.d) fpsYaw -= FPS_TURN_SPEED * dt;
+
+    // Normalizar y aplicar velocidad
+    const len = Math.hypot(moveX, moveZ);
+    if (len > 0) {
+      moveX = (moveX / len) * FPS_MOVE_SPEED * dt;
+      moveZ = (moveZ / len) * FPS_MOVE_SPEED * dt;
+      // Comprobar colision con la nueva X (manteniendo Z)
+      const newX = fpsPos.x + moveX;
+      if (!fpsCollideAt(newX, fpsPos.z)) fpsPos.x = newX;
+      // Comprobar colision con la nueva Z (manteniendo X)
+      const newZ = fpsPos.z + moveZ;
+      if (!fpsCollideAt(fpsPos.x, newZ)) fpsPos.z = newZ;
+    }
+
+    // Colocar la camara en (x, 1.70m, z) con la orientacion yaw/pitch
+    camera.position.set(fpsPos.x, fpsPos.y, fpsPos.z);
+    // Construir el cuaternion de orientacion: primero yaw, luego pitch
+    const euler = new THREE.Euler(fpsPitch, fpsYaw, 0, "YXZ");
+    camera.quaternion.setFromEuler(euler);
+  } else {
+    controls.update();
+  }
   renderer.render(scene, camera);
 }
 animate();
