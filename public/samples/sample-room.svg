@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 300" width="500" height="300">
-  <path class="suelo" d="M 0 0 L 400 0 L 400 150 L 500 150 L 500 300 L 0 300 Z" fill="#c4a988" stroke="#8a6a48" stroke-width="2"/>
-  <line class="cota" x1="0" y1="-15" x2="400" y2="-15" stroke="#666" stroke-width="1"/>
-  <text class="etiqueta" x="200" y="-25" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#666">400 cm</text>
+  <path class="suelo" data-id="floor-1" data-name="Suelo" data-group="floor"
+        data-color-top="#c4a988" data-color-bottom="#6a5a48"
+        d="M 0 0 L 400 0 L 400 150 L 500 150 L 500 300 L 0 300 Z" fill="#c4a988" stroke="#8a6a48" stroke-width="2"/>
+  <line class="cota" data-id="dim-width" data-group="dimension" data-text="400 cm"
+        x1="0" y1="-15" x2="400" y2="-15" stroke="#666" stroke-width="1"/>
+  <text class="etiqueta" data-id="label-1" data-group="label" data-text="400 cm"
+        x="200" y="-25" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#666">400 cm</text>
 </svg>

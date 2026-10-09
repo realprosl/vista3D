@@ -5,26 +5,30 @@
  * abajo-izquierda, X derecha, Y arriba. Esto es coherente con el mundo
  * real (arriba = techo, abajo = suelo).
  *
- * Salida:
+ * Atributos del <svg> raiz (kebab-case, en ingles):
+ *   - data-wall-id     ID de la pared asociada (N, S, E, O, o un id libre
+ *                      como "wall-north"). Se usa para vincular con la
+ *                      pared de la planta.
+ *   - data-wall-width  Ancho real de la pared en cm (puede coincidir con
+ *                      viewBox/width si el alzado esta a escala 1:1).
+ *
+ * Atributos de los elementos (kebab-case):
+ *   - data-id, data-name, data-group, data-room (mismos que en la planta)
+ *   - data-color-exterior, data-color-interior, data-color-extrusion
+ *   - data-texture-exterior, data-texture-interior, data-texture-extrusion
+ *
+ * Salida (parseElevationElements):
  *   {
- *     widthCm: number,   // ancho del alzado
- *     heightCm: number,  // alto del alzado
+ *     wallId, wallWidthCm, widthCm, heightCm,
  *     apertures: [
- *       { kind: "door" | "window", xCm, widthCm, yCm, heightCm }
+ *       { id, name, group, room, parentWallId, xCm, widthCm, yCm, heightCm,
+ *         colorExterior, colorInterior, colorExtrusion,
+ *         textureExterior, textureInterior, textureExtrusion }
  *     ]
  *   }
  *
- * Deteccion de aperturas por convencion de colores/rellenos:
- *   - Puertas:   <rect fill="#ffffff"> (rectangulo blanco)
- *   - Ventanas:  <rect fill="#cce4ff"> (azul claro, color de cristal)
- *
- * Deteccion explicita (preferida si esta presente):
- *   - Atributo data-kind="door" | "window" en el <rect>.
- *
- * Atributos del <svg> raiz:
- *   - data-wall: nombre de la pared asociada (N, S, E, O, o un id libre).
- *   - data-wall-width: ancho real de la pared en cm (puede coincidir con
- *     viewBox/width si el alzado esta a escala 1:1).
+ * Salida legacy (parseElevation): misma forma que v0.5.0 para no romper
+ * el servidor actual.
  */
 
 import { promises as fs } from "node:fs";
@@ -53,6 +57,33 @@ export interface ElevationMeta {
   apertures: ElevationAperture[];
 }
 
+/** Apertura con metadatos completos (Fase 1: data-* attributes). */
+export interface ElevationApertureElement {
+  id: string;
+  name: string | null;
+  group: "door" | "window" | "hole";
+  room: string | null;
+  parentWallId: string | null;
+  xCm: number;
+  widthCm: number;
+  yCm: number;
+  heightCm: number;
+  colorExterior: string | null;
+  colorInterior: string | null;
+  colorExtrusion: string | null;
+  textureExterior: string | null;
+  textureInterior: string | null;
+  textureExtrusion: string | null;
+}
+
+export interface ElevationElements {
+  wallId: string | null;
+  wallWidthCm: number | null;
+  widthCm: number;
+  heightCm: number;
+  apertures: ElevationApertureElement[];
+}
+
 /** Convierte un numero SVG (puede tener unidad "px", "cm", etc.) a numero puro. */
 function parseNumber(s: string): number {
   const m = s.trim().match(/^(-?\d+(?:\.\d+)?)/);
@@ -60,23 +91,66 @@ function parseNumber(s: string): number {
   return parseFloat(m[1]);
 }
 
-export function parseElevation(svg: string): ElevationMeta {
-  // Extraer atributos del <svg> raiz (solo el primer match, en la primera linea).
+/** Parsea atributos XML como un objeto plano. */
+function attrsToObject(s: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  const re = /([\w:-]+)\s*=\s*"([^"]*)"/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(s)) !== null) {
+    out[m[1]] = m[2];
+  }
+  return out;
+}
+
+/** Lee un atributo data- (kebab-case) o su alias camelCase. */
+function dataAttr(attrs: Record<string, string>, kebab: string): string | null {
+  if (attrs[kebab] != null && attrs[kebab] !== "") return attrs[kebab];
+  const camel = kebab.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+  if (attrs[camel] != null && attrs[camel] !== "") return attrs[camel];
+  return null;
+}
+
+/** Determina el group de una apertura por la clase. */
+function apertureGroupFromClass(cls: string): "door" | "window" | "hole" | null {
+  const tokens = cls.toLowerCase().split(/\s+/).filter(Boolean);
+  if (tokens.some(t => t === "puerta" || t === "door")) return "door";
+  if (tokens.some(t => t === "ventana" || t === "window")) return "window";
+  if (tokens.some(t => t === "hueco" || t === "hole")) return "hole";
+  return null;
+}
+
+/** Genera un id unico si el elemento no tiene data-id. */
+function genId(prefix: string, used: Set<string>, idx: number): string {
+  let candidate = `${prefix}-${idx}`;
+  let n = idx;
+  while (used.has(candidate)) {
+    n++;
+    candidate = `${prefix}-${n}`;
+  }
+  used.add(candidate);
+  return candidate;
+}
+
+// =============================================================================
+// API NUEVA: parseElevationElements
+// =============================================================================
+
+/**
+ * Parsea un SVG de alzado y devuelve TODOS los metadatos.
+ * Si el SVG no tiene los nuevos atributos data-*, autogenera ids y
+ * rellena con defaults (compatible con SVGs legacy).
+ */
+export function parseElevationElements(svg: string): ElevationElements {
   const svgTagMatch = svg.match(/<svg\b([^>]*)>/i);
   if (!svgTagMatch) throw new Error("SVG invalido: falta <svg>");
-  const svgAttrs = svgTagMatch[1];
+  const svgAttrs = attrsToObject(svgTagMatch[1]);
 
-  function getAttr(name: string): string | null {
-    const re = new RegExp(`\\b${name}\\s*=\\s*"([^"]*)"`, "i");
-    const m = svgAttrs.match(re);
-    return m ? m[1] : null;
-  }
-
-  const wall = getAttr("data-wall");
-  const wallWidthStr = getAttr("data-wall-width");
-  const viewBoxStr = getAttr("viewBox");
-  const widthStr = getAttr("width");
-  const heightStr = getAttr("height");
+  // wallId: leer tanto data-wall-id (nuevo, kebab) como data-wall (legacy)
+  const wallId = dataAttr(svgAttrs, "data-wall-id") || svgAttrs["data-wall"] || null;
+  const wallWidthStr = dataAttr(svgAttrs, "data-wall-width");
+  const viewBoxStr = svgAttrs["viewBox"];
+  const widthStr = svgAttrs["width"];
+  const heightStr = svgAttrs["height"];
 
   let widthCm: number;
   let heightCm: number;
@@ -94,69 +168,115 @@ export function parseElevation(svg: string): ElevationMeta {
 
   const wallWidthCm = wallWidthStr ? parseNumber(wallWidthStr) : null;
 
-  // Extraer todos los <rect> con sus atributos y clase.
-  const rectRegex = /<rect\b([^>]*)\/?>/gi;
-  const apertures: ElevationAperture[] = [];
+  // Iterar todos los <rect> y <line> con clase .puerta/.ventana/.hueco
+  const apertures: ElevationApertureElement[] = [];
+  const usedIds = new Set<string>();
+  let doorIdx = 0, winIdx = 0, holeIdx = 0;
+
+  const elementRegex = /<(rect|line)\b([^>]*?)\/?>/gi;
   let m: RegExpExecArray | null;
-  while ((m = rectRegex.exec(svg)) !== null) {
-    const attrs = m[1];
-    function attr(name: string): string | null {
-      const r = new RegExp(`\\b${name}\\s*=\\s*"([^"]*)"`, "i");
-      const a = attrs.match(r);
-      return a ? a[1] : null;
-    }
-    const cls = (attr("class") || "").toLowerCase();
-    const x = parseNumber(attr("x") ?? "0");
-    const y = parseNumber(attr("y") ?? "0");
-    const w = parseNumber(attr("width") ?? "0");
-    const h = parseNumber(attr("height") ?? "0");
-    if (w === 0 || h === 0) continue;
-    // Saltar los <rect> ocultos (display:none) que se usan solo como metadata.
-    if (/display\s*:\s*none/.test(attrs)) continue;
+  while ((m = elementRegex.exec(svg)) !== null) {
+    const tag = m[1].toLowerCase();
+    const rawAttrs = m[2];
+    const attrs = attrsToObject(rawAttrs);
 
-    // Determinar el tipo por la clase (.puerta / .ventana / .hueco).
-    let kind: "door" | "window" | null = null;
-    if (cls.split(/\s+/).includes("puerta")) kind = "door";
-    else if (cls.split(/\s+/).includes("ventana")) kind = "window";
-    else if (cls.split(/\s+/).includes("hueco")) {
-      // Hueco generico: por la relacion de aspecto decidimos si es puerta
-      // (h/w > 1.5) o ventana (h/w < 1.2).
-      kind = h / w > 1.5 ? "door" : "window";
+    if (rawAttrs.includes('display="none"') || rawAttrs.includes("display:none")) continue;
+
+    const cls = (attrs["class"] || "").toLowerCase();
+    let group = apertureGroupFromClass(cls);
+
+    // Si no tiene clase, intentar fallback legacy (data-kind o fill)
+    if (!group) {
+      const dataKind = dataAttr(attrs, "data-kind")?.toLowerCase();
+      const fill = (attrs["fill"] || "").toLowerCase();
+      if (dataKind === "door" || dataKind === "puerta") group = "door";
+      else if (dataKind === "window" || dataKind === "ventana") group = "window";
+      else if (fill === "#ffffff" || fill === "#fff" || fill === "white") group = "door";
+      else if (fill === "#cce4ff" || fill === "#b8d8f0") group = "window";
+      else continue; // No es una apertura, ignorar
+    }
+
+    // Extraer coordenadas
+    let x: number, y: number, w: number, h: number;
+    if (tag === "rect") {
+      x = parseNumber(attrs["x"] || "0");
+      y = parseNumber(attrs["y"] || "0");
+      w = parseNumber(attrs["width"] || "0");
+      h = parseNumber(attrs["height"] || "0");
     } else {
-      // Fallback legacy: detectar por fill o data-kind.
-      const fill = (attr("fill") ?? "").toLowerCase();
-      const dataKind = attr("data-kind")?.toLowerCase();
-      if (dataKind === "door" || dataKind === "puerta") kind = "door";
-      else if (dataKind === "window" || dataKind === "ventana") kind = "window";
-      else if (fill === "#ffffff" || fill === "#fff" || fill === "white") kind = "door";
-      else if (fill === "#cce4ff" || fill === "#b8d8f0") kind = "window";
-      else if (fill === "none") {
-        if (h / w > 1.5) kind = "door";
-        else if (h / w < 1.2) kind = "window";
-      }
+      // <line>: x1,y1 a x2,y2
+      const x1 = parseNumber(attrs["x1"] || "0");
+      const y1 = parseNumber(attrs["y1"] || "0");
+      const x2 = parseNumber(attrs["x2"] || "0");
+      const y2 = parseNumber(attrs["y2"] || "0");
+      x = Math.min(x1, x2);
+      y = Math.min(y1, y2);
+      w = Math.abs(x2 - x1);
+      h = Math.abs(y2 - y1);
+    }
+    if (w === 0 || h === 0) continue;
+
+    // Para huecos genericos, decidir por aspect ratio (legacy)
+    if (group === "hole" && cls.includes("hueco")) {
+      group = h / w > 1.5 ? "door" : "window";
     }
 
-    if (kind) {
-      apertures.push({
-        kind,
-        xCm: x,
-        widthCm: w,
-        yCm: y,
-        heightCm: h,
-      });
+    // Generar id si no hay
+    const dataId = dataAttr(attrs, "data-id");
+    let id: string;
+    if (dataId) {
+      id = dataId;
+      usedIds.add(id);
+    } else {
+      const prefix = group;
+      const idx = group === "door" ? ++doorIdx : group === "window" ? ++winIdx : ++holeIdx;
+      id = genId(prefix, usedIds, idx);
     }
+
+    apertures.push({
+      id,
+      name: dataAttr(attrs, "data-name"),
+      group,
+      room: dataAttr(attrs, "data-room"),
+      parentWallId: dataAttr(attrs, "data-wall-id") || wallId,
+      xCm: x,
+      widthCm: w,
+      yCm: y,
+      heightCm: h,
+      colorExterior: dataAttr(attrs, "data-color-exterior") || attrs["fill"] || null,
+      colorInterior: dataAttr(attrs, "data-color-interior"),
+      colorExtrusion: dataAttr(attrs, "data-color-extrusion"),
+      textureExterior: dataAttr(attrs, "data-texture-exterior"),
+      textureInterior: dataAttr(attrs, "data-texture-interior"),
+      textureExtrusion: dataAttr(attrs, "data-texture-extrusion"),
+    });
   }
 
+  return { wallId, wallWidthCm, widthCm, heightCm, apertures };
+}
+
+// =============================================================================
+// API LEGACY: parseElevation (mantener para no romper el servidor v0.5.0)
+// =============================================================================
+
+export function parseElevation(svg: string): ElevationMeta {
+  const elements = parseElevationElements(svg);
   return {
-    wall,
-    wallWidthCm,
-    widthCm,
-    heightCm,
-    apertures,
+    wall: elements.wallId,
+    wallWidthCm: elements.wallWidthCm,
+    widthCm: elements.widthCm,
+    heightCm: elements.heightCm,
+    apertures: elements.apertures.map(a => ({
+      kind: a.group === "window" ? "window" : "door",
+      xCm: a.xCm,
+      widthCm: a.widthCm,
+      yCm: a.yCm,
+      heightCm: a.heightCm,
+    })),
   };
 }
 
-/** Lee un archivo y devuelve la meta del alzado. */
+/** Lee un archivo y devuelve la meta del alzado (legacy). */
 export async function parseElevationFile(path: string): Promise<ElevationMeta> {
   const svg = await fs.readFile(path, "utf-8");
   return parseElevation(svg);

@@ -59,20 +59,29 @@ function showError(msg) {
 let svgText;
 let alzadosMeta = []; // Array<{name, meta}> del proyecto
 let isProject = false;
+let elementsData = null; // Datos completos con metadatos data-* (v0.6.0)
 try {
   // Probamos primero como proyecto: GET /api/projects/:id
   const metaRes = await fetch(`/api/projects/${id}`);
   if (metaRes.ok) {
     isProject = true;
-    const [plantaRes, alzadosRes] = await Promise.all([
+    const [plantaRes, alzadosRes, elementsRes] = await Promise.all([
       fetch(`/api/projects/${id}/planta`),
       fetch(`/api/projects/${id}/alzados-meta`),
+      // Nuevo endpoint v0.6.0: devuelve todos los elementos con metadatos
+      // data-* (nombres, habitaciones, colores del SVG, vinculacion
+      // planta <-> alzados). Si el SVG es legacy (sin data-*), el
+      // endpoint sigue devolviendo datos con ids autogeneradas.
+      fetch(`/api/projects/${id}/elements`),
     ]);
     if (!plantaRes.ok) throw new Error(`No se pudo cargar la planta (HTTP ${plantaRes.status})`);
     svgText = await plantaRes.text();
     if (alzadosRes.ok) {
       const data = await alzadosRes.json();
       alzadosMeta = data.alzados || [];
+    }
+    if (elementsRes.ok) {
+      elementsData = await elementsRes.json();
     }
   } else {
     // Fallback legacy: /api/svg/:id
@@ -597,16 +606,30 @@ const MP_GLOBALS = {
 // Esta lista se construye ANTES del bucle de paredes, porque las aperturas
 // se identifican por id global (puerta-1, puerta-2, ventana-1, ...) y el
 // bucle de paredes reutiliza esas ids para registrar los meshes.
+//
+// Si el endpoint /api/projects/:id/elements devolvio datos (elementsData),
+// usamos los nombres reales y la vinculacion planta <-> alzados. Si no,
+// fallback al sistema actual (N/S/E/O autogenerados).
 const elementList = [];
 const wallList = [];
 const aperturaList = [];
 const _wallIdSet = new Set();
 
+// Helper: nombre legible de un wallId (N/S/E/O -> Norte/Sur/Este/Oeste,
+// o el data-name del elemento si esta disponible).
+function niceWallName(wallId) {
+  if (elementsData && elementsData.paredes) {
+    const elem = elementsData.paredes.find(p => p.id === wallId);
+    if (elem && elem.name) return elem.name;
+  }
+  return { N: "Norte", S: "Sur", E: "Este", O: "Oeste" }[wallId] || wallId;
+}
+
 // Paredes
 for (const info of paredesInfo) {
   if (_wallIdSet.has(info.wall)) continue;
   _wallIdSet.add(info.wall);
-  const niceName = { N: "Norte", S: "Sur", E: "Este", O: "Oeste" }[info.wall] || info.wall;
+  const niceName = niceWallName(info.wall);
   const w = {
     tipo: "wall",
     id: info.wall,
@@ -621,28 +644,94 @@ for (const info of paredesInfo) {
 }
 
 // Aperturas: las IDs se asignan una vez, en este orden (mismo orden que
-// recorre el bucle de paredes despues).
+// recorre el bucle de paredes despues). Si elementsData tiene aperturas
+// con data-id, las usamos para vincular con el SVG; si no, autogeneramos.
 let _doorCount = 0, _winCount = 0, _holeCount = 0;
+
+// Construir un mapa: wallId -> { doors, windows, holes } con data-id del SVG.
+const aperturaById = new Map();
+if (elementsData) {
+  // Primero las aperturas de la planta.
+  for (const a of elementsData.aperturasPlanta || []) {
+    aperturaById.set(a.id, a);
+  }
+  // Luego las de los alzados (pueden sobrescribir si hay colision).
+  for (const wallId in (elementsData.alzados || {})) {
+    const elev = elementsData.alzados[wallId];
+    for (const a of elev.apertures || []) {
+      aperturaById.set(a.id, { ...a, wallId });
+    }
+  }
+}
+
 for (const info of paredesInfo) {
-  const wallNice = { N: "Norte", S: "Sur", E: "Este", O: "Oeste" }[info.wall] || info.wall;
+  const wallNice = niceWallName(info.wall);
   for (const a of info.apertures) {
     let ap;
     const wallLabel = "Pared " + wallNice;
+    // Intentar usar la apertura del endpoint (busca por wallId y posicion).
+    // Como fallback, autogenera puerta-N/ventana-N/hueco-N.
+    let matchedFromEndpoint = null;
+    if (aperturaById.size > 0) {
+      // Buscar la primera apertura del tipo y wallId que coincida.
+      for (const [id, ea] of aperturaById.entries()) {
+        const parent = ea.parentWallId || ea.wallId;
+        if (parent === info.wall && ea.group === (a.kind === "door" ? "door" : a.kind === "window" ? "window" : "hole")) {
+          matchedFromEndpoint = ea;
+          aperturaById.delete(id); // No reutilizar
+          break;
+        }
+      }
+    }
+
     if (a.kind === "door") {
       _doorCount++;
-      ap = { tipo: "door", id: "puerta-" + _doorCount, label: "Puerta " + _doorCount, wallId: info.wall, wallLabel,
-        exterior: { ...ELEMENT_DEFAULTS.door.exterior }, interior: { ...ELEMENT_DEFAULTS.door.interior }, extrusion: { ...ELEMENT_DEFAULTS.door.extrusion } };
-      a.aperturaId = ap.id;
+      const id = matchedFromEndpoint ? matchedFromEndpoint.id : "puerta-" + _doorCount;
+      ap = { tipo: "door", id, label: matchedFromEndpoint ? (matchedFromEndpoint.name || "Puerta " + _doorCount) : "Puerta " + _doorCount,
+        wallId: info.wall, wallLabel,
+        exterior: matchedFromEndpoint && matchedFromEndpoint.colorExterior
+          ? { color: matchedFromEndpoint.colorExterior, texture: matchedFromEndpoint.textureExterior || "liso" }
+          : { ...ELEMENT_DEFAULTS.door.exterior },
+        interior: matchedFromEndpoint && matchedFromEndpoint.colorInterior
+          ? { color: matchedFromEndpoint.colorInterior, texture: matchedFromEndpoint.textureInterior || "liso" }
+          : { ...ELEMENT_DEFAULTS.door.interior },
+        extrusion: matchedFromEndpoint && matchedFromEndpoint.colorExtrusion
+          ? { color: matchedFromEndpoint.colorExtrusion, texture: matchedFromEndpoint.textureExtrusion || "liso" }
+          : { ...ELEMENT_DEFAULTS.door.extrusion },
+      };
+      a.aperturaId = id;
     } else if (a.kind === "window") {
       _winCount++;
-      ap = { tipo: "window", id: "ventana-" + _winCount, label: "Ventana " + _winCount, wallId: info.wall, wallLabel,
-        exterior: { ...ELEMENT_DEFAULTS.window.exterior }, interior: { ...ELEMENT_DEFAULTS.window.interior }, extrusion: { ...ELEMENT_DEFAULTS.window.extrusion } };
-      a.aperturaId = ap.id;
+      const id = matchedFromEndpoint ? matchedFromEndpoint.id : "ventana-" + _winCount;
+      ap = { tipo: "window", id, label: matchedFromEndpoint ? (matchedFromEndpoint.name || "Ventana " + _winCount) : "Ventana " + _winCount,
+        wallId: info.wall, wallLabel,
+        exterior: matchedFromEndpoint && matchedFromEndpoint.colorExterior
+          ? { color: matchedFromEndpoint.colorExterior, texture: matchedFromEndpoint.textureExterior || "liso" }
+          : { ...ELEMENT_DEFAULTS.window.exterior },
+        interior: matchedFromEndpoint && matchedFromEndpoint.colorInterior
+          ? { color: matchedFromEndpoint.colorInterior, texture: matchedFromEndpoint.textureInterior || "liso" }
+          : { ...ELEMENT_DEFAULTS.window.interior },
+        extrusion: matchedFromEndpoint && matchedFromEndpoint.colorExtrusion
+          ? { color: matchedFromEndpoint.colorExtrusion, texture: matchedFromEndpoint.textureExtrusion || "liso" }
+          : { ...ELEMENT_DEFAULTS.window.extrusion },
+      };
+      a.aperturaId = id;
     } else {
       _holeCount++;
-      ap = { tipo: "hole", id: "hueco-" + _holeCount, label: "Hueco " + _holeCount, wallId: info.wall, wallLabel,
-        exterior: { ...ELEMENT_DEFAULTS.hole.exterior }, interior: { ...ELEMENT_DEFAULTS.hole.interior }, extrusion: { ...ELEMENT_DEFAULTS.hole.extrusion } };
-      a.aperturaId = ap.id;
+      const id = matchedFromEndpoint ? matchedFromEndpoint.id : "hueco-" + _holeCount;
+      ap = { tipo: "hole", id, label: matchedFromEndpoint ? (matchedFromEndpoint.name || "Hueco " + _holeCount) : "Hueco " + _holeCount,
+        wallId: info.wall, wallLabel,
+        exterior: matchedFromEndpoint && matchedFromEndpoint.colorExterior
+          ? { color: matchedFromEndpoint.colorExterior, texture: matchedFromEndpoint.textureExterior || "liso" }
+          : { ...ELEMENT_DEFAULTS.hole.exterior },
+        interior: matchedFromEndpoint && matchedFromEndpoint.colorInterior
+          ? { color: matchedFromEndpoint.colorInterior, texture: matchedFromEndpoint.textureInterior || "liso" }
+          : { ...ELEMENT_DEFAULTS.hole.interior },
+        extrusion: matchedFromEndpoint && matchedFromEndpoint.colorExtrusion
+          ? { color: matchedFromEndpoint.colorExtrusion, texture: matchedFromEndpoint.textureExtrusion || "liso" }
+          : { ...ELEMENT_DEFAULTS.hole.extrusion },
+      };
+      a.aperturaId = id;
     }
     elementList.push(ap);
     aperturaList.push(ap);

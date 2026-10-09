@@ -1,33 +1,31 @@
 /**
- * Genera SVGs de prueba para vista3D con la convencion v0.5.0:
+ * Genera SVGs de prueba para vista3D con la convencion v0.6.0:
  *
- * Cada elemento se marca con una clase semantica para que el parser
- * y el visor 3D lo reconozcan:
- *   - .suelo     suelo del piso (planta)
- *   - .pared     pared de la planta (interior o exterior) o linea
- *                de fachada en el alzado
- *   - .puerta    puerta (planta: como gap en la pared; alzado: rect)
- *   - .ventana   ventana (planta: como gap en la pared; alzado: rect)
- *   - .hueco     apertura generica (fallback)
- *   - .cota      linea de cota (decorativa, ignorada en 3D)
- *   - .etiqueta  texto de etiqueta (decorativo, ignorado en 3D)
+ * Cada elemento se marca con una clase semantica + atributos data-*
+ * en kebab-case y en ingles:
+ *   - data-id               identificador unico
+ *   - data-name             nombre legible (panel)
+ *   - data-group            wall/floor/door/window/hole/furniture/label/dimension
+ *   - data-room             habitacion a la que pertenece
+ *   - data-wall-id          id de la pared padre (para aperturas)
+ *   - data-color-exterior   color cara exterior/fachada
+ *   - data-color-interior   color cara interior/pintura
+ *   - data-color-extrusion  color del cuerpo extruido
+ *   - data-color-top        color cara superior (suelo)
+ *   - data-color-bottom     color cara inferior (suelo)
+ *   - data-texture-*        liso/madera/baldosa/ladrillo/marmol/piedra
  *
- * Colores por defecto (se pueden sobreescribir en el proyecto):
- *   - .suelo:     #c4a988 (arena)
- *   - .pared:     #eee2cc (crema)
- *   - .puerta:    #f5d99a (crema oscuro)
- *   - .ventana:   #b8d8f0 (azul claro / cristal)
- *   - .cota:      #888
- *   - .etiqueta:  #333
- *
- * Atributos data-:
- *   - data-color:    color hex para sobreescribir el default
- *   - data-texture:  nombre de textura procedural (liso/madera/baldosa/...)
- *   - data-grosor:   grosor en cm (default 8)
- *   - data-wall:     (solo alzados) "N" | "S" | "E" | "W"
- *   - data-wall-width: (solo alzados) ancho real de la pared en cm
- *   - data-ancho, data-alto: (puertas/ventanas) dimensiones en cm
- *   - data-x, data-y: (puertas/ventanas) posicion del borde inf-izq en cm
+ * Clases CSS:
+ *   - .pared / .wall / .muro       -> wall
+ *   - .suelo / .floor              -> floor
+ *   - .puerta / .door              -> door
+ *   - .ventana / .window           -> window
+ *   - .hueco / .hole               -> hole
+ *   - .mueble / .furniture /
+ *     .silla / .mesa / .sofa /
+ *     .cama / .armario             -> furniture (no se renderiza en 3D)
+ *   - .etiqueta / .label / .texto  -> label (no se renderiza en 3D)
+ *   - .cota / .dimension / .medida -> dimension (no se renderiza en 3D)
  */
 import { writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -51,9 +49,13 @@ mkdirSync(outDir, { recursive: true });
   ].join(" ");
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 300" width="500" height="300">
-  <path class="suelo" d="${d}" fill="#c4a988" stroke="#8a6a48" stroke-width="2"/>
-  <line class="cota" x1="0" y1="-15" x2="400" y2="-15" stroke="#666" stroke-width="1"/>
-  <text class="etiqueta" x="200" y="-25" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#666">400 cm</text>
+  <path class="suelo" data-id="floor-1" data-name="Suelo" data-group="floor"
+        data-color-top="#c4a988" data-color-bottom="#6a5a48"
+        d="${d}" fill="#c4a988" stroke="#8a6a48" stroke-width="2"/>
+  <line class="cota" data-id="dim-width" data-group="dimension" data-text="400 cm"
+        x1="0" y1="-15" x2="400" y2="-15" stroke="#666" stroke-width="1"/>
+  <text class="etiqueta" data-id="label-1" data-group="label" data-text="400 cm"
+        x="200" y="-25" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#666">400 cm</text>
 </svg>
 `;
   writeFileSync(path, svg, "utf-8");
@@ -61,16 +63,13 @@ mkdirSync(outDir, { recursive: true });
 }
 
 // =============================================================================
-// PLANO 2: Piso 3 habitaciones DETALLADO
+// PLANO 2: Piso 3 habitaciones (con atributos data-* completos)
 // =============================================================================
 {
   const path = join(outDir, "piso-3hab.svg");
   const ox = 50, oy = 50;
   const pisoW = 1300, pisoH = 800;
 
-  // Distribucion (en cm, relativa al ox,oy).
-  // Layout: 1 sola fila con varias habitaciones. Sin paredes interiores
-  // marcadas: lo importante es el contorno y las cotas.
   const exterior = [
     [ox, oy],
     [ox + pisoW, oy],
@@ -78,34 +77,39 @@ mkdirSync(outDir, { recursive: true });
     [ox, oy + pisoH],
   ];
 
-  // Paredes interiores.
+  // Cada pared interior tiene id, nombre, room, y colores.
   const paredes = [
-    // Muro horizontal central (separa zona dia de zona noche)
-    [ox, oy + 400, ox + 850, oy + 400],
-    // Muro vertical Salon | Dorm 1
-    [ox + 500, oy, ox + 500, oy + 400],
-    // Muro vertical Cocina | Bano
-    [ox + 800, oy + 400, ox + 800, oy + 800],
-    // Muro vertical Bano | Dorm 2
-    [ox + 1000, oy + 400, ox + 1000, oy + 800],
-    // Muro vertical Pasillo | Cocina
-    [ox + 250, oy + 400, ox + 250, oy + 800],
+    { x1: ox,        y1: oy + 400, x2: ox + 850,  y2: oy + 400,
+      id: "wall-living-dorm1", name: "Muro salon-dorm1", room: "living",
+      colorExt: "#eee2cc", colorInt: "#f5ead2", colorExt2: "#8b7355" },
+    { x1: ox + 500,  y1: oy,       x2: ox + 500,  y2: oy + 400,
+      id: "wall-living-dorm1-v", name: "Muro vertical salon-dorm1", room: "dorm1",
+      colorExt: "#eee2cc", colorInt: "#f5ead2", colorExt2: "#8b7355" },
+    { x1: ox + 800,  y1: oy + 400, x2: ox + 800,  y2: oy + 800,
+      id: "wall-kitchen-bath", name: "Muro cocina-bano", room: "kitchen",
+      colorExt: "#d4c4a0", colorInt: "#c0e8d0", colorExt2: "#8b7355" },
+    { x1: ox + 1000, y1: oy + 400, x2: ox + 1000, y2: oy + 800,
+      id: "wall-bath-dorm2", name: "Muro bano-dorm2", room: "bath",
+      colorExt: "#b8d8e8", colorInt: "#e0f0f0", colorExt2: "#8b7355" },
+    { x1: ox + 250,  y1: oy + 400, x2: ox + 250,  y2: oy + 800,
+      id: "wall-hall-kitchen", name: "Muro pasillo-cocina", room: "hall",
+      colorExt: "#eee2cc", colorInt: "#f5ead2", colorExt2: "#8b7355" },
   ];
 
   const labels = [
-    { x: ox + 250, y: oy + 220, text: "Salón" },
-    { x: ox + 675, y: oy + 220, text: "Dorm. 1" },
-    { x: ox + 125, y: oy + 600, text: "Pasillo" },
-    { x: ox + 525, y: oy + 600, text: "Cocina" },
-    { x: ox + 900, y: oy + 600, text: "Baño" },
-    { x: ox + 1150, y: oy + 600, text: "Dorm. 2" },
+    { x: ox + 250,  y: oy + 220, text: "Living",      room: "living" },
+    { x: ox + 675,  y: oy + 220, text: "Dorm. 1",     room: "dorm1" },
+    { x: ox + 125,  y: oy + 600, text: "Pasillo",     room: "hall" },
+    { x: ox + 525,  y: oy + 600, text: "Cocina",      room: "kitchen" },
+    { x: ox + 900,  y: oy + 600, text: "Baño",        room: "bath" },
+    { x: ox + 1150, y: oy + 600, text: "Dorm. 2",     room: "dorm2" },
   ];
   const areas = [
-    { x: ox + 250, y: oy + 250, text: "20 m²" },
-    { x: ox + 675, y: oy + 250, text: "14 m²" },
-    { x: ox + 125, y: oy + 630, text: "10 m²" },
-    { x: ox + 525, y: oy + 630, text: "12 m²" },
-    { x: ox + 900, y: oy + 630, text: "8 m²" },
+    { x: ox + 250,  y: oy + 250, text: "20 m²" },
+    { x: ox + 675,  y: oy + 250, text: "14 m²" },
+    { x: ox + 125,  y: oy + 630, text: "10 m²" },
+    { x: ox + 525,  y: oy + 630, text: "12 m²" },
+    { x: ox + 900,  y: oy + 630, text: "8 m²" },
     { x: ox + 1150, y: oy + 630, text: "12 m²" },
   ];
 
@@ -113,28 +117,47 @@ mkdirSync(outDir, { recursive: true });
   for (let i = 1; i < exterior.length; i++) pathD += `L ${exterior[i][0]} ${exterior[i][1]} `;
   pathD += "Z";
 
-  const paredesSvg = paredes.map(([x1, y1, x2, y2]) =>
-    `<line class="pared" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#5a3a1a" stroke-width="3" stroke-linecap="square"/>`
+  const paredesSvg = paredes.map(p =>
+    `<line class="pared"
+      data-id="${p.id}" data-name="${p.name}" data-group="wall" data-room="${p.room}"
+      data-color-exterior="${p.colorExt}" data-color-interior="${p.colorInt}"
+      data-color-extrusion="${p.colorExt2}" data-texture-exterior="liso"
+      data-texture-interior="liso" data-texture-extrusion="liso"
+      x1="${p.x1}" y1="${p.y1}" x2="${p.x2}" y2="${p.y2}"
+      stroke="#5a3a1a" stroke-width="3" stroke-linecap="square"/>`
   ).join("\n  ");
 
-  const labelSvg = labels.map(l =>
-    `<text class="etiqueta" x="${l.x}" y="${l.y}" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="600" fill="#333">${l.text}</text>`
+  const labelSvg = labels.map((l, i) =>
+    `<text class="etiqueta" data-id="label-${i+1}" data-group="label" data-room="${l.room}"
+      x="${l.x}" y="${l.y}" text-anchor="middle" font-family="sans-serif"
+      font-size="22" font-weight="600" fill="#333">${l.text}</text>`
   ).join("\n  ");
 
-  const areaSvg = areas.map(a =>
-    `<text class="etiqueta" x="${a.x}" y="${a.y}" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#888">${a.text}</text>`
+  const areaSvg = areas.map((a, i) =>
+    `<text class="etiqueta" data-id="area-${i+1}" data-group="label"
+      x="${a.x}" y="${a.y}" text-anchor="middle" font-family="sans-serif"
+      font-size="14" fill="#888">${a.text}</text>`
   ).join("\n  ");
 
   const cotas = `
-  <line class="cota" x1="${ox}" y1="${oy - 30}" x2="${ox + pisoW}" y2="${oy - 30}" stroke="#888" stroke-width="1"/>
-  <text class="etiqueta" x="${ox + pisoW / 2}" y="${oy - 40}" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#666">${pisoW} cm</text>
-  <line class="cota" x1="${ox - 30}" y1="${oy}" x2="${ox - 30}" y2="${oy + pisoH}" stroke="#888" stroke-width="1"/>
-  <text class="etiqueta" x="${ox - 40}" y="${oy + pisoH / 2}" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#666" transform="rotate(-90 ${ox - 40} ${oy + pisoH / 2})">${pisoH} cm</text>
+  <line class="cota" data-id="dim-width" data-group="dimension" data-text="${pisoW} cm"
+        x1="${ox}" y1="${oy - 30}" x2="${ox + pisoW}" y2="${oy - 30}" stroke="#888" stroke-width="1"/>
+  <text class="etiqueta" data-id="label-dim-w" data-group="label"
+        x="${ox + pisoW / 2}" y="${oy - 40}" text-anchor="middle"
+        font-family="sans-serif" font-size="16" fill="#666">${pisoW} cm</text>
+  <line class="cota" data-id="dim-height" data-group="dimension" data-text="${pisoH} cm"
+        x1="${ox - 30}" y1="${oy}" x2="${ox - 30}" y2="${oy + pisoH}" stroke="#888" stroke-width="1"/>
+  <text class="etiqueta" data-id="label-dim-h" data-group="label"
+        x="${ox - 40}" y="${oy + pisoH / 2}" text-anchor="middle"
+        font-family="sans-serif" font-size="16" fill="#666"
+        transform="rotate(-90 ${ox - 40} ${oy + pisoH / 2})">${pisoH} cm</text>
   `;
 
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${pisoW + 100} ${pisoH + 100}" width="${pisoW + 100}" height="${pisoH + 100}">
-  <path class="suelo" d="${pathD}" fill="#c4a988" stroke="#8a6a48" stroke-width="3"/>
+  <path class="suelo" data-id="floor-main" data-name="Suelo" data-group="floor"
+        data-color-top="#c4a988" data-color-bottom="#6a5a48"
+        d="${pathD}" fill="#c4a988" stroke="#8a6a48" stroke-width="3"/>
   ${paredesSvg}
   ${labelSvg}
   ${areaSvg}
@@ -142,7 +165,7 @@ mkdirSync(outDir, { recursive: true });
 </svg>
 `;
   writeFileSync(path, svg, "utf-8");
-  console.log(`OK: ${path} (piso 3 habitaciones ~80m²)`);
+  console.log(`OK: ${path} (piso 3 habitaciones ~80m², con data-*)`);
 }
 
 console.log("");
@@ -151,7 +174,7 @@ console.log("  http://194.163.184.142:8080/public/samples/sample-room.svg");
 console.log("  http://194.163.184.142:8080/public/samples/piso-3hab.svg");
 
 // =============================================================================
-// PROYECTO DEMO: casa unifamiliar 10m x 8m con puerta + 2 ventanas
+// PROYECTO DEMO: casa unifamiliar 10m x 8m (legacy - sin data-* en paredes)
 // =============================================================================
 const DEMO_DIR = join(outDir, "proyecto-demo");
 mkdirSync(DEMO_DIR, { recursive: true });
@@ -225,7 +248,6 @@ const ventanaAntepechoCm = 90;
 
   const pathD = `M ${exterior[0][0]} ${exterior[0][1]} L ${exterior[1][0]} ${exterior[1][1]} L ${exterior[2][0]} ${exterior[2][1]} L ${exterior[3][0]} ${exterior[3][1]} Z`;
 
-  // Metadata de aperturas (invisible, para el parser).
   const aperturasMeta = `
   <rect class="puerta" data-x="${puerta.x1 - demoOx}" data-y="0" data-ancho="${puerta.x2 - puerta.x1}" data-alto="${puertaAltoCm}" style="display:none"/>
   <rect class="ventana" data-x="${ventana2.x1 - demoOx}" data-y="0" data-ancho="${ventana2.x2 - ventana2.x1}" data-alto="${ventanaAltoCm}" style="display:none"/>
@@ -246,7 +268,7 @@ const ventanaAntepechoCm = 90;
 </svg>
 `;
   writeFileSync(path, svg, "utf-8");
-  console.log(`OK: ${path} (planta 10x8m)`);
+  console.log(`OK: ${path} (planta 10x8m, legacy)`);
 }
 
 // ALZADO NORTE
@@ -280,7 +302,7 @@ const ventanaAntepechoCm = 90;
 </svg>
 `;
   writeFileSync(path, svg, "utf-8");
-  console.log(`OK: ${path} (fachada norte)`);
+  console.log(`OK: ${path} (fachada norte, legacy)`);
 }
 
 // ALZADO SUR
@@ -309,11 +331,262 @@ const ventanaAntepechoCm = 90;
 </svg>
 `;
   writeFileSync(path, svg, "utf-8");
-  console.log(`OK: ${path} (fachada sur)`);
+  console.log(`OK: ${path} (fachada sur, legacy)`);
+}
+
+// =============================================================================
+// PROYECTO MARA: casa con atributos data-* completos
+// =============================================================================
+const MARA_DIR = join(outDir, "proyecto-mara");
+mkdirSync(MARA_DIR, { recursive: true });
+
+const maraOx = 50, maraOy = 50;
+const MW = 1000, MH = 800;
+const MALTO = 270;
+
+{
+  // PLANTA MARA: 2 habitaciones (salon + dormitorio), con 1 puerta interior
+  // y 3 aperturas en fachada (puerta entrada, ventana salon, ventana dorm).
+  const path = join(MARA_DIR, "planta.svg");
+  const exterior = [
+    [maraOx, maraOy],
+    [maraOx + MW, maraOy],
+    [maraOx + MW, maraOy + MH],
+    [maraOx, maraOy + MH],
+  ];
+
+  // Muro interior: vertical a 550cm (separa salon de dormitorio).
+  const muroInteriorX = maraOx + 550;
+  // Puerta interior (entre salon y dormitorio) a y=400cm.
+  const puertaInteriorY1 = maraOy + 400;
+  const puertaInteriorY2 = maraOy + 500;
+
+  // Paredes exteriores (4 lados del rectangulo).
+  const exteriorParedes = [
+    { id: "wall-south", name: "Muro sur",  // fachade (puerta entrada)
+      x1: maraOx, y1: maraOy + MH, x2: maraOx + MW, y2: maraOy + MH },
+    { id: "wall-north", name: "Muro norte",
+      x1: maraOx, y1: maraOy,     x2: maraOx + MW, y2: maraOy },
+    { id: "wall-west",  name: "Muro oeste",
+      x1: maraOx, y1: maraOy,     x2: maraOx,     y2: maraOy + MH },
+    { id: "wall-east",  name: "Muro este",
+      x1: maraOx + MW, y1: maraOy, x2: maraOx + MW, y2: maraOy + MH },
+  ];
+  const exteriorParedesSvg = exteriorParedes.map(p =>
+    `<line class="pared" data-id="${p.id}" data-name="${p.name}" data-group="wall" data-room=""
+      data-color-exterior="#d4c4a0" data-color-interior="#f5ead2" data-color-extrusion="#8b7355"
+      data-texture-exterior="liso" data-texture-interior="liso" data-texture-extrusion="liso"
+      x1="${p.x1}" y1="${p.y1}" x2="${p.x2}" y2="${p.y2}" stroke="#5a3a1a" stroke-width="3"/>`
+  ).join("\n  ");
+
+  // Aperturas en fachada (deben coincidir con los alzados).
+  // Puerta de entrada (fachada sur) en x=300.
+  const fachadaSurPuertaX1 = maraOx + 300;
+  const fachadaSurPuertaX2 = maraOx + 400;
+  // Ventanas fachada sur: salon (x=600) y dormitorio (x=800).
+  const fachadaSurVentana1 = { x1: maraOx + 600, x2: maraOx + 720 };
+  const fachadaSurVentana2 = { x1: maraOx + 800, x2: maraOx + 920 };
+
+  function segmentarV(y, x1, x2, hueco, id) {
+    const out = [];
+    if (hueco) {
+      out.push(`<line class="pared" data-id="${id}-a" data-group="wall" data-room="salon"
+        data-color-exterior="#d4c4a0" data-color-interior="#f5ead2" data-color-extrusion="#8b7355"
+        data-texture-exterior="liso" data-texture-interior="liso" data-texture-extrusion="liso"
+        x1="${x1}" y1="${y}" x2="${hueco.x1}" y2="${y}" stroke="#5a3a1a" stroke-width="3"/>`);
+      out.push(`<line class="pared" data-id="${id}-b" data-group="wall" data-room="salon"
+        data-color-exterior="#d4c4a0" data-color-interior="#f5ead2" data-color-extrusion="#8b7355"
+        data-texture-exterior="liso" data-texture-interior="liso" data-texture-extrusion="liso"
+        x1="${hueco.x2}" y1="${y}" x2="${x2}" y2="${y}" stroke="#5a3a1a" stroke-width="3"/>`);
+    } else {
+      out.push(`<line class="pared" data-id="${id}" data-group="wall" data-room="salon"
+        data-color-exterior="#d4c4a0" data-color-interior="#f5ead2" data-color-extrusion="#8b7355"
+        data-texture-exterior="liso" data-texture-interior="liso" data-texture-extrusion="liso"
+        x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="#5a3a1a" stroke-width="3"/>`);
+    }
+    return out.join("\n  ");
+  }
+  function segmentarH(x, y1, y2, hueco, id) {
+    const out = [];
+    if (hueco) {
+      out.push(`<line class="pared" data-id="${id}-a" data-group="wall" data-room="salon"
+        data-color-exterior="#d4c4a0" data-color-interior="#f5ead2" data-color-extrusion="#8b7355"
+        data-texture-exterior="liso" data-texture-interior="liso" data-texture-extrusion="liso"
+        x1="${x}" y1="${y1}" x2="${x}" y2="${hueco.y1}" stroke="#5a3a1a" stroke-width="3"/>`);
+      out.push(`<line class="pared" data-id="${id}-b" data-group="wall" data-room="salon"
+        data-color-exterior="#d4c4a0" data-color-interior="#f5ead2" data-color-extrusion="#8b7355"
+        data-texture-exterior="liso" data-texture-interior="liso" data-texture-extrusion="liso"
+        x1="${x}" y1="${hueco.y2}" x2="${x}" y2="${y2}" stroke="#5a3a1a" stroke-width="3"/>`);
+    } else {
+      out.push(`<line class="pared" data-id="${id}" data-group="wall" data-room="salon"
+        data-color-exterior="#d4c4a0" data-color-interior="#f5ead2" data-color-extrusion="#8b7355"
+        data-texture-exterior="liso" data-texture-interior="liso" data-texture-extrusion="liso"
+        x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="#5a3a1a" stroke-width="3"/>`);
+    }
+    return out.join("\n  ");
+  }
+
+  const labels = [
+    { x: maraOx + 275, y: maraOy + 380, text: "Salón",     room: "salon" },
+    { x: maraOx + 775, y: maraOy + 380, text: "Dormitorio", room: "dormitorio" },
+  ];
+  const labelSvg = labels.map((l, i) =>
+    `<text class="etiqueta" data-id="label-${i+1}" data-group="label" data-room="${l.room}"
+      x="${l.x}" y="${l.y}" text-anchor="middle" font-family="sans-serif"
+      font-size="22" font-weight="600" fill="#333">${l.text}</text>`
+  ).join("\n  ");
+
+  // Muebles: 1 sofa en salon, 1 cama en dormitorio.
+  const muebles = [
+    { id: "sofa-1", name: "Sofá",  room: "salon",
+      x: maraOx + 50,  y: maraOy + 50,  w: 250, h: 90,  fill: "#8b6f4a" },
+    { id: "cama-1", name: "Cama",  room: "dormitorio",
+      x: maraOx + 600, y: maraOy + 50,  w: 200, h: 160, fill: "#a89070" },
+    { id: "mesa-1", name: "Mesa salón", room: "salon",
+      x: maraOx + 350, y: maraOy + 50,  w: 120, h: 80,  fill: "#9c7a55" },
+  ];
+  const mueblesSvg = muebles.map(m =>
+    `<rect class="mueble" data-id="${m.id}" data-name="${m.name}" data-group="furniture" data-room="${m.room}"
+      data-color-exterior="${m.fill}" data-texture-exterior="madera"
+      x="${m.x}" y="${m.y}" width="${m.w}" height="${m.h}"
+      fill="${m.fill}" stroke="#333" stroke-width="1" opacity="0.7"/>`
+  ).join("\n  ");
+
+  const cotas = `
+  <line class="cota" data-id="dim-width" data-group="dimension" data-text="${MW} cm"
+        x1="${maraOx}" y1="${maraOy - 30}" x2="${maraOx + MW}" y2="${maraOy - 30}" stroke="#888" stroke-width="1"/>
+  <text class="etiqueta" data-id="label-dim-w" data-group="label"
+        x="${maraOx + MW / 2}" y="${maraOy - 40}" text-anchor="middle"
+        font-family="sans-serif" font-size="16" fill="#666">${MW} cm</text>
+  <line class="cota" data-id="dim-height" data-group="dimension" data-text="${MH} cm"
+        x1="${maraOx - 30}" y1="${maraOy}" x2="${maraOx - 30}" y2="${maraOy + MH}" stroke="#888" stroke-width="1"/>
+  <text class="etiqueta" data-id="label-dim-h" data-group="label"
+        x="${maraOx - 40}" y="${maraOy + MH / 2}" text-anchor="middle"
+        font-family="sans-serif" font-size="16" fill="#666"
+        transform="rotate(-90 ${maraOx - 40} ${maraOy + MH / 2})">${MH} cm</text>
+  `;
+
+  const pathD = `M ${exterior[0][0]} ${exterior[0][1]} L ${exterior[1][0]} ${exterior[1][1]} L ${exterior[2][0]} ${exterior[2][1]} L ${exterior[3][0]} ${exterior[3][1]} Z`;
+
+  // Metadata de aperturas con coordenadas REALES en la planta
+  // (las lee el parser para identificar cada apertura).
+  // Las aperturas que estan en fachada (sur) iran centradas en la pared sur.
+  const aperturasMeta = `
+  <rect class="puerta" data-id="door-entrada" data-name="Puerta entrada" data-group="door"
+        data-room="salon" data-wall-id="wall-south"
+        data-color-exterior="#5a3a20" data-color-interior="#5a3a20" data-color-extrusion="#3a2a18"
+        data-texture-exterior="madera" data-texture-interior="madera" data-texture-extrusion="liso"
+        x="${fachadaSurPuertaX1 - maraOx}" y="${MH - 5}" width="${fachadaSurPuertaX2 - fachadaSurPuertaX1}" height="5"/>
+  <rect class="ventana" data-id="window-salon" data-name="Ventana salón" data-group="window"
+        data-room="salon" data-wall-id="wall-south"
+        data-color-exterior="#b8d8f0" data-color-interior="#b8d8f0" data-color-extrusion="#9fc8e8"
+        data-texture-exterior="liso"
+        x="${fachadaSurVentana1.x1 - maraOx}" y="${MH - 5}" width="${fachadaSurVentana1.x2 - fachadaSurVentana1.x1}" height="5"/>
+  <rect class="ventana" data-id="window-dorm" data-name="Ventana dormitorio" data-group="window"
+        data-room="dormitorio" data-wall-id="wall-south"
+        data-color-exterior="#b8d8f0" data-color-interior="#b8d8f0" data-color-extrusion="#9fc8e8"
+        data-texture-exterior="liso"
+        x="${fachadaSurVentana2.x1 - maraOx}" y="${MH - 5}" width="${fachadaSurVentana2.x2 - fachadaSurVentana2.x1}" height="5"/>
+  <rect class="puerta" data-id="door-interior" data-name="Puerta interior" data-group="door"
+        data-room="salon" data-wall-id="wall-mid"
+        data-color-exterior="#8b6f4a" data-color-interior="#8b6f4a" data-color-extrusion="#5a4023"
+        data-texture-exterior="madera" data-texture-interior="madera" data-texture-extrusion="liso"
+        x="${muroInteriorX - maraOx - 3}" y="${puertaInteriorY1 - maraOy}" width="6" height="${puertaInteriorY2 - puertaInteriorY1}"/>
+  `;
+
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${MW + 100} ${MH + 100}" width="${MW + 100}" height="${MH + 100}">
+  <path class="suelo" data-id="floor-main" data-name="Suelo" data-group="floor"
+        data-color-top="#c4a988" data-color-bottom="#6a5a48"
+        data-texture-top="liso" data-texture-bottom="liso"
+        d="${pathD}" fill="#c4a988" stroke="#8a6a48" stroke-width="3"/>
+  ${segmentarH(muroInteriorX, maraOy, maraOy + MH,
+    { y1: puertaInteriorY1, y2: puertaInteriorY2 }, "wall-mid")}
+  ${exteriorParedesSvg}
+  ${mueblesSvg}
+  ${aperturasMeta}
+  ${labelSvg}
+  ${cotas}
+</svg>
+`;
+  writeFileSync(path, svg, "utf-8");
+  console.log(`OK: ${path} (planta Mara, 2 habitaciones + muebles)`);
+}
+
+// ALZADO SUR (fachada principal, con puerta entrada + 2 ventanas)
+{
+  const path = join(MARA_DIR, "alzado-sur.svg");
+  const W2 = MW, H2 = MALTO;
+  const puertaX = 250;  // 300-50
+  const puertaY = 0;
+  const ventana1X = 550;  // 600-50
+  const ventana1Y = 90;
+  const ventana2X = 750;  // 800-50
+  const ventana2Y = 90;
+
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W2} ${H2}" width="${W2}" height="${H2}"
+     data-wall-id="wall-south" data-wall-width="${MW}">
+  <line class="pared" data-id="wall-south" data-name="Muro sur" data-group="wall" data-room="salon"
+        data-color-exterior="#d4c4a0" data-color-interior="#f5ead2" data-color-extrusion="#8b7355"
+        data-texture-exterior="ladrillo" data-texture-interior="liso" data-texture-extrusion="liso"
+        x1="0" y1="0" x2="${W2}" y2="0" stroke="#333" stroke-width="4"/>
+  <line class="pared" data-id="wall-south-base" data-group="wall" data-room="salon"
+        x1="0" y1="${H2 - 2}" x2="${W2}" y2="${H2 - 2}" stroke="#333" stroke-width="2"/>
+
+  <rect class="puerta" data-id="door-entrada" data-name="Puerta entrada" data-group="door"
+        data-room="salon" data-wall-id="wall-south"
+        data-color-exterior="#5a3a20" data-color-interior="#5a3a20" data-color-extrusion="#3a2a18"
+        data-texture-exterior="madera" data-texture-interior="madera" data-texture-extrusion="liso"
+        x="${puertaX}" y="${puertaY}" width="100" height="210"
+        fill="#f5d99a" stroke="#5a3a1a" stroke-width="3"/>
+  <path class="puerta" d="M ${puertaX + 100} ${puertaY} A 100 210 0 0 1 ${puertaX + 100} ${puertaY + 210}"
+        fill="none" stroke="#5a3a1a" stroke-width="2" stroke-dasharray="4 3"/>
+
+  <rect class="ventana" data-id="window-salon" data-name="Ventana salón" data-group="window"
+        data-room="salon" data-wall-id="wall-south"
+        data-color-exterior="#b8d8f0" data-color-interior="#b8d8f0" data-color-extrusion="#9fc8e8"
+        data-texture-exterior="liso"
+        x="${ventana1X}" y="${ventana1Y}" width="120" height="120"
+        fill="#b8d8f0" stroke="#5a3a1a" stroke-width="3"/>
+  <line class="ventana" x1="${ventana1X + 60}" y1="${ventana1Y}" x2="${ventana1X + 60}" y2="${ventana1Y + 120}" stroke="#5a3a1a" stroke-width="1.5"/>
+  <line class="ventana" x1="${ventana1X}" y1="${ventana1Y + 60}" x2="${ventana1X + 120}" y2="${ventana1Y + 60}" stroke="#5a3a1a" stroke-width="1.5"/>
+
+  <rect class="ventana" data-id="window-dorm" data-name="Ventana dormitorio" data-group="window"
+        data-room="dormitorio" data-wall-id="wall-south"
+        data-color-exterior="#b8d8f0" data-color-interior="#b8d8f0" data-color-extrusion="#9fc8e8"
+        data-texture-exterior="liso"
+        x="${ventana2X}" y="${ventana2Y}" width="120" height="120"
+        fill="#b8d8f0" stroke="#5a3a1a" stroke-width="3"/>
+  <line class="ventana" x1="${ventana2X + 60}" y1="${ventana2Y}" x2="${ventana2X + 60}" y2="${ventana2Y + 120}" stroke="#5a3a1a" stroke-width="1.5"/>
+  <line class="ventana" x1="${ventana2X}" y1="${ventana2Y + 60}" x2="${ventana2X + 120}" y2="${ventana2Y + 60}" stroke="#5a3a1a" stroke-width="1.5"/>
+
+  <text class="etiqueta" data-id="label-door" data-group="label" data-room="salon"
+        x="${puertaX + 50}" y="${puertaY + 230}" text-anchor="middle"
+        font-family="sans-serif" font-size="14" fill="#666">Puerta entrada 100×210cm</text>
+  <text class="etiqueta" data-id="label-win1" data-group="label" data-room="salon"
+        x="${ventana1X + 60}" y="${ventana1Y - 8}" text-anchor="middle"
+        font-family="sans-serif" font-size="12" fill="#666">V salón 120×120cm</text>
+  <text class="etiqueta" data-id="label-win2" data-group="label" data-room="dormitorio"
+        x="${ventana2X + 60}" y="${ventana2Y - 8}" text-anchor="middle"
+        font-family="sans-serif" font-size="12" fill="#666">V dorm 120×120cm</text>
+
+  <line class="cota" data-id="dim-h" data-group="dimension" data-text="${H2} cm"
+        x1="${W2 + 10}" y1="0" x2="${W2 + 10}" y2="${H2}" stroke="#888" stroke-width="1"/>
+  <text class="etiqueta" data-id="label-dim-h" data-group="label"
+        x="${W2 + 18}" y="${H2 / 2}" font-family="sans-serif" font-size="14" fill="#666">${H2} cm</text>
+</svg>
+`;
+  writeFileSync(path, svg, "utf-8");
+  console.log(`OK: ${path} (fachada sur Mara, con data-*)`);
 }
 
 console.log("");
-console.log("Proyecto demo en public/samples/proyecto-demo/");
+console.log("Proyecto Mara en public/samples/proyecto-mara/");
+console.log("  - planta.svg          (1000x800 cm, 2 habitaciones + muebles + cotas)");
+console.log("  - alzado-sur.svg      (1000x270 cm, 1 puerta + 2 ventanas, todos con data-*)");
+console.log("");
+console.log("Proyecto demo legacy en public/samples/proyecto-demo/");
 console.log("  - planta.svg          (1000x800 cm)");
-console.log("  - alzado-norte.svg    (1000x250 cm, puerta + 2 ventanas)");
-console.log("  - alzado-sur.svg      (1000x250 cm, 2 ventanas)");
+console.log("  - alzado-norte.svg    (1000x250 cm)");
+console.log("  - alzado-sur.svg      (1000x250 cm)");

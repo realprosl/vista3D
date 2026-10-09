@@ -40,8 +40,8 @@ import {
   statSync,
 } from "node:fs";
 import { join, resolve, extname } from "node:path";
-import { parseSvg, contourBounds } from "./svg-to-3d";
-import { parseElevation, type ElevationMeta } from "./svg-elevations";
+import { parseSvg, parseSvgElements, contourBounds } from "./svg-to-3d";
+import { parseElevation, parseElevationElements, type ElevationMeta } from "./svg-elevations";
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
 const HOST = process.env.HOST || "0.0.0.0";
@@ -275,6 +275,102 @@ app.get("/api/projects/:id/planta", (req, res) => {
   }
   res.setHeader("Content-Type", "image/svg+xml");
   res.send(readFileSync(path));
+});
+
+/**
+ * GET /api/projects/:id/elements — devuelve TODOS los elementos del
+ * proyecto (planta + alzados) con sus metadatos data-*. El visor 3D
+ * lo consume para construir el panel de materiales con nombres reales
+ * y agrupar por habitación.
+ *
+ * Salida:
+ *   {
+ *     viewBox: { width, height },
+ *     suelo: ElementSvg | null,
+ *     paredes: ElementSvg[],
+ *     aperturasPlanta: ElementSvg[],   // aperturas definidas en la planta
+ *     extras: ElementSvg[],            // muebles, etiquetas, cotas de la planta
+ *     alzados: {                       // mapa wallId -> datos del alzado
+ *       "wall-north": { widthCm, heightCm, wallWidthCm, apertures: [...] },
+ *       ...
+ *     }
+ *   }
+ *
+ * Vinculacion planta <-> alzado: el data-id de cada pared en la planta
+ * debe coincidir con el data-wall-id del <svg> raiz del alzado.
+ */
+app.get("/api/projects/:id/elements", (req, res) => {
+  const id = req.params.id;
+  if (!/^[a-zA-Z0-9-]+$/.test(id)) {
+    res.status(400).json({ error: "Identificador invalido" });
+    return;
+  }
+  const plantaPath = join(PROJECTS, id, "planta.svg");
+  if (!existsSync(plantaPath)) {
+    res.status(404).json({ error: "Planta no encontrada" });
+    return;
+  }
+  let plantaElements;
+  try {
+    plantaElements = parseSvgElements(readFileSync(plantaPath, "utf-8"));
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: `Error parseando planta: ${msg}` });
+    return;
+  }
+
+  // Parsear todos los alzados.
+  const alzadosDir = join(PROJECTS, id, "alzados");
+  const alzados: Record<string, {
+    widthCm: number;
+    heightCm: number;
+    wallWidthCm: number | null;
+    apertures: Array<{
+      id: string;
+      name: string | null;
+      group: string;
+      room: string | null;
+      parentWallId: string | null;
+      xCm: number;
+      widthCm: number;
+      yCm: number;
+      heightCm: number;
+      colorExterior: string | null;
+      colorInterior: string | null;
+      colorExtrusion: string | null;
+      textureExterior: string | null;
+      textureInterior: string | null;
+      textureExtrusion: string | null;
+    }>;
+  }> = {};
+  if (existsSync(alzadosDir)) {
+    const files = readdirSync(alzadosDir).filter((f: string) => f.endsWith(".svg"));
+    for (const f of files) {
+      try {
+        const elev = parseElevationElements(readFileSync(join(alzadosDir, f), "utf-8"));
+        // La clave del mapa es el wallId del alzado (preferente) o el nombre
+        // del archivo sin extension si no tiene wallId.
+        const key = elev.wallId || f.replace(/\.svg$/, "");
+        alzados[key] = {
+          widthCm: elev.widthCm,
+          heightCm: elev.heightCm,
+          wallWidthCm: elev.wallWidthCm,
+          apertures: elev.apertures,
+        };
+      } catch {
+        // Alzado malformado: lo saltamos.
+      }
+    }
+  }
+
+  res.json({
+    viewBox: plantaElements.viewBox,
+    suelo: plantaElements.suelo,
+    paredes: plantaElements.paredes,
+    aperturasPlanta: plantaElements.aperturas,
+    extras: plantaElements.extras,
+    alzados,
+  });
 });
 
 /**

@@ -1,27 +1,90 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 900" width="1400" height="900">
-  <path class="suelo" d="M 50 50 L 1350 50 L 1350 850 L 50 850 Z" fill="#c4a988" stroke="#8a6a48" stroke-width="3"/>
-  <line class="pared" x1="50" y1="450" x2="900" y2="450" stroke="#5a3a1a" stroke-width="3" stroke-linecap="square"/>
-  <line class="pared" x1="550" y1="50" x2="550" y2="450" stroke="#5a3a1a" stroke-width="3" stroke-linecap="square"/>
-  <line class="pared" x1="850" y1="450" x2="850" y2="850" stroke="#5a3a1a" stroke-width="3" stroke-linecap="square"/>
-  <line class="pared" x1="1050" y1="450" x2="1050" y2="850" stroke="#5a3a1a" stroke-width="3" stroke-linecap="square"/>
-  <line class="pared" x1="300" y1="450" x2="300" y2="850" stroke="#5a3a1a" stroke-width="3" stroke-linecap="square"/>
-  <text class="etiqueta" x="300" y="270" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="600" fill="#333">Salón</text>
-  <text class="etiqueta" x="725" y="270" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="600" fill="#333">Dorm. 1</text>
-  <text class="etiqueta" x="175" y="650" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="600" fill="#333">Pasillo</text>
-  <text class="etiqueta" x="575" y="650" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="600" fill="#333">Cocina</text>
-  <text class="etiqueta" x="950" y="650" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="600" fill="#333">Baño</text>
-  <text class="etiqueta" x="1200" y="650" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="600" fill="#333">Dorm. 2</text>
-  <text class="etiqueta" x="300" y="300" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#888">20 m²</text>
-  <text class="etiqueta" x="725" y="300" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#888">14 m²</text>
-  <text class="etiqueta" x="175" y="680" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#888">10 m²</text>
-  <text class="etiqueta" x="575" y="680" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#888">12 m²</text>
-  <text class="etiqueta" x="950" y="680" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#888">8 m²</text>
-  <text class="etiqueta" x="1200" y="680" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#888">12 m²</text>
+  <path class="suelo" data-id="floor-main" data-name="Suelo" data-group="floor"
+        data-color-top="#c4a988" data-color-bottom="#6a5a48"
+        d="M 50 50 L 1350 50 L 1350 850 L 50 850 Z" fill="#c4a988" stroke="#8a6a48" stroke-width="3"/>
+  <line class="pared"
+      data-id="wall-living-dorm1" data-name="Muro salon-dorm1" data-group="wall" data-room="living"
+      data-color-exterior="#eee2cc" data-color-interior="#f5ead2"
+      data-color-extrusion="#8b7355" data-texture-exterior="liso"
+      data-texture-interior="liso" data-texture-extrusion="liso"
+      x1="50" y1="450" x2="900" y2="450"
+      stroke="#5a3a1a" stroke-width="3" stroke-linecap="square"/>
+  <line class="pared"
+      data-id="wall-living-dorm1-v" data-name="Muro vertical salon-dorm1" data-group="wall" data-room="dorm1"
+      data-color-exterior="#eee2cc" data-color-interior="#f5ead2"
+      data-color-extrusion="#8b7355" data-texture-exterior="liso"
+      data-texture-interior="liso" data-texture-extrusion="liso"
+      x1="550" y1="50" x2="550" y2="450"
+      stroke="#5a3a1a" stroke-width="3" stroke-linecap="square"/>
+  <line class="pared"
+      data-id="wall-kitchen-bath" data-name="Muro cocina-bano" data-group="wall" data-room="kitchen"
+      data-color-exterior="#d4c4a0" data-color-interior="#c0e8d0"
+      data-color-extrusion="#8b7355" data-texture-exterior="liso"
+      data-texture-interior="liso" data-texture-extrusion="liso"
+      x1="850" y1="450" x2="850" y2="850"
+      stroke="#5a3a1a" stroke-width="3" stroke-linecap="square"/>
+  <line class="pared"
+      data-id="wall-bath-dorm2" data-name="Muro bano-dorm2" data-group="wall" data-room="bath"
+      data-color-exterior="#b8d8e8" data-color-interior="#e0f0f0"
+      data-color-extrusion="#8b7355" data-texture-exterior="liso"
+      data-texture-interior="liso" data-texture-extrusion="liso"
+      x1="1050" y1="450" x2="1050" y2="850"
+      stroke="#5a3a1a" stroke-width="3" stroke-linecap="square"/>
+  <line class="pared"
+      data-id="wall-hall-kitchen" data-name="Muro pasillo-cocina" data-group="wall" data-room="hall"
+      data-color-exterior="#eee2cc" data-color-interior="#f5ead2"
+      data-color-extrusion="#8b7355" data-texture-exterior="liso"
+      data-texture-interior="liso" data-texture-extrusion="liso"
+      x1="300" y1="450" x2="300" y2="850"
+      stroke="#5a3a1a" stroke-width="3" stroke-linecap="square"/>
+  <text class="etiqueta" data-id="label-1" data-group="label" data-room="living"
+      x="300" y="270" text-anchor="middle" font-family="sans-serif"
+      font-size="22" font-weight="600" fill="#333">Living</text>
+  <text class="etiqueta" data-id="label-2" data-group="label" data-room="dorm1"
+      x="725" y="270" text-anchor="middle" font-family="sans-serif"
+      font-size="22" font-weight="600" fill="#333">Dorm. 1</text>
+  <text class="etiqueta" data-id="label-3" data-group="label" data-room="hall"
+      x="175" y="650" text-anchor="middle" font-family="sans-serif"
+      font-size="22" font-weight="600" fill="#333">Pasillo</text>
+  <text class="etiqueta" data-id="label-4" data-group="label" data-room="kitchen"
+      x="575" y="650" text-anchor="middle" font-family="sans-serif"
+      font-size="22" font-weight="600" fill="#333">Cocina</text>
+  <text class="etiqueta" data-id="label-5" data-group="label" data-room="bath"
+      x="950" y="650" text-anchor="middle" font-family="sans-serif"
+      font-size="22" font-weight="600" fill="#333">Baño</text>
+  <text class="etiqueta" data-id="label-6" data-group="label" data-room="dorm2"
+      x="1200" y="650" text-anchor="middle" font-family="sans-serif"
+      font-size="22" font-weight="600" fill="#333">Dorm. 2</text>
+  <text class="etiqueta" data-id="area-1" data-group="label"
+      x="300" y="300" text-anchor="middle" font-family="sans-serif"
+      font-size="14" fill="#888">20 m²</text>
+  <text class="etiqueta" data-id="area-2" data-group="label"
+      x="725" y="300" text-anchor="middle" font-family="sans-serif"
+      font-size="14" fill="#888">14 m²</text>
+  <text class="etiqueta" data-id="area-3" data-group="label"
+      x="175" y="680" text-anchor="middle" font-family="sans-serif"
+      font-size="14" fill="#888">10 m²</text>
+  <text class="etiqueta" data-id="area-4" data-group="label"
+      x="575" y="680" text-anchor="middle" font-family="sans-serif"
+      font-size="14" fill="#888">12 m²</text>
+  <text class="etiqueta" data-id="area-5" data-group="label"
+      x="950" y="680" text-anchor="middle" font-family="sans-serif"
+      font-size="14" fill="#888">8 m²</text>
+  <text class="etiqueta" data-id="area-6" data-group="label"
+      x="1200" y="680" text-anchor="middle" font-family="sans-serif"
+      font-size="14" fill="#888">12 m²</text>
   
-  <line class="cota" x1="50" y1="20" x2="1350" y2="20" stroke="#888" stroke-width="1"/>
-  <text class="etiqueta" x="700" y="10" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#666">1300 cm</text>
-  <line class="cota" x1="20" y1="50" x2="20" y2="850" stroke="#888" stroke-width="1"/>
-  <text class="etiqueta" x="10" y="450" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#666" transform="rotate(-90 10 450)">800 cm</text>
+  <line class="cota" data-id="dim-width" data-group="dimension" data-text="1300 cm"
+        x1="50" y1="20" x2="1350" y2="20" stroke="#888" stroke-width="1"/>
+  <text class="etiqueta" data-id="label-dim-w" data-group="label"
+        x="700" y="10" text-anchor="middle"
+        font-family="sans-serif" font-size="16" fill="#666">1300 cm</text>
+  <line class="cota" data-id="dim-height" data-group="dimension" data-text="800 cm"
+        x1="20" y1="50" x2="20" y2="850" stroke="#888" stroke-width="1"/>
+  <text class="etiqueta" data-id="label-dim-h" data-group="label"
+        x="10" y="450" text-anchor="middle"
+        font-family="sans-serif" font-size="16" fill="#666"
+        transform="rotate(-90 10 450)">800 cm</text>
   
 </svg>
