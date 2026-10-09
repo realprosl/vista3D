@@ -22,6 +22,9 @@
  *    con el query ?grosorCm=12.
  */
 import * as THREE from "three";
+// Exponemos THREE en window para que modulos hermanos (textures.js)
+// que no hacen import puedan acceder via window.THREE.
+window.THREE = THREE;
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 // --- Estado ----------------------------------------------------------------
@@ -88,19 +91,30 @@ try {
 const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
 const svgEl = doc.documentElement;
 
+// Helpers robustos para SVG (los selectores [class~="..."] no son 100%
+// fiables en todos los navegadores cuando el documento es SVG).
+function hasClass(el, cls) {
+  if (!el || !el.getAttribute) return false;
+  const c = (el.getAttribute("class") || "").split(/\s+/);
+  return c.includes(cls);
+}
+function findByClass(cls) {
+  return Array.from(svgEl.querySelectorAll("*")).filter(el => hasClass(el, cls));
+}
+function findFirstByClass(cls) {
+  return findByClass(cls)[0] || null;
+}
+
 // Elementos con clase semantica (v0.5.0). Si el SVG no las usa, fallback
 // a la primera forma disponible (compatibilidad con SVGs antiguos).
-const sueloEl = svgEl.querySelector('[class~="suelo"]')
-  || svgEl.querySelector('[class*="suelo"]')
+const sueloEl = findFirstByClass("suelo")
   || svgEl.querySelector("path")
   || svgEl.querySelector("polygon")
   || svgEl.querySelector("rect");
-const paredEls = Array.from(svgEl.querySelectorAll('[class~="pared"], [class*="pared"]'));
-const lineEls = paredEls.length > 0
-  ? [] // si hay paredes con clase, no usamos <line> sueltos
-  : Array.from(svgEl.querySelectorAll("line"));
+const paredEls = findByClass("pared");
 
-// Si no hay paredes con clase pero hay <line>, los tratamos como paredes.
+// Si no hay paredes con clase, fallback a <line> como paredes.
+const lineEls = paredEls.length > 0 ? [] : Array.from(svgEl.querySelectorAll("line"));
 const wallLineEls = paredEls.length > 0 ? [] : lineEls;
 
 let mainContour = [];

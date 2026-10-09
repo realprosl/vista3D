@@ -15,25 +15,40 @@
  *   - "piedra":   pattern aleatorio gris.
  *
  * Uso:
- *   import { getTexture } from "./textures";
+ *   import { getTexture } from "./textures.js";
  *   const tex = getTexture("madera", 0xb88a5e, 256, 256);
  *   const mat = new THREE.MeshStandardMaterial({ map: tex, ... });
+ *
+ * NOTA: este modulo NO importa THREE. La razon es que con importmap,
+ * si dos modulos hacen `import * as THREE from "three"`, Chrome a veces
+ * falla con "Identifier 'THREE' has already been declared" porque la
+ * resolucion del importmap se hace por modulo y se solapan los bindings.
+ * Usamos THREE desde el scope global (window.THREE) que es donde el
+ * importmap del visor lo expone tras el primer import.
  */
 
-import * as THREE from "three";
+// THREE se obtiene del scope global (lo expone el importmap del visor).
+// Fallback a un shim vacio si no esta disponible (e.g. tests en Node).
+function getTHREE() {
+  if (typeof window !== "undefined" && window.THREE) return window.THREE;
+  return {
+    CanvasTexture: class {
+      constructor() { this.wrapS = 0; this.wrapT = 0; this.repeat = { set() {} }; this.anisotropy = 0; }
+    },
+    RepeatWrapping: 1,
+  };
+}
 
-const cache = new Map<string, THREE.Texture>();
+const cache = new Map();
 
-function cacheKey(kind: string, color: number, w: number, h: number) {
+function cacheKey(kind, color, w, h) {
   return `${kind}:${color.toString(16)}:${w}x${h}`;
 }
 
-export function getTexture(
-  kind: string,
-  baseColor: number = 0xc4a988,
-  w: number = 256,
-  h: number = 256,
-): THREE.Texture {
+export function getTexture(kind, baseColor, w, h) {
+  if (baseColor === undefined) baseColor = 0xc4a988;
+  if (w === undefined) w = 256;
+  if (h === undefined) h = 256;
   const key = cacheKey(kind, baseColor, w, h);
   const cached = cache.get(key);
   if (cached) return cached;
@@ -41,7 +56,7 @@ export function getTexture(
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
-  const ctx = canvas.getContext("2d")!;
+  const ctx = canvas.getContext("2d");
 
   const baseHex = "#" + baseColor.toString(16).padStart(6, "0");
   const lightHex = lighten(baseColor, 0.15);
@@ -70,9 +85,10 @@ export function getTexture(
       paintSolid(ctx, w, h, baseHex);
   }
 
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.wrapS = THREE.RepeatWrapping;
-  tex.wrapT = THREE.RepeatWrapping;
+  const T = getTHREE();
+  const tex = new T.CanvasTexture(canvas);
+  tex.wrapS = T.RepeatWrapping;
+  tex.wrapT = T.RepeatWrapping;
   // Repetimos para que las texturas se vean a una escala razonable
   // cuando se aplican a superficies grandes (suelo, paredes).
   tex.repeat.set(4, 2);
@@ -81,29 +97,29 @@ export function getTexture(
   return tex;
 }
 
-export function listTextures(): string[] {
+export function listTextures() {
   return ["liso", "madera", "baldosa", "ladrillo", "marmol", "piedra"];
 }
 
 // --- Helpers de color ------------------------------------------------------
-function clamp(n: number) { return Math.max(0, Math.min(255, n)); }
-function hex(n: number) { return "#" + n.toString(16).padStart(6, "0"); }
-function lighten(c: number, t: number) {
+function clamp(n) { return Math.max(0, Math.min(255, n)); }
+function hex(n) { return "#" + n.toString(16).padStart(6, "0"); }
+function lighten(c, t) {
   const r = (c >> 16) & 0xff, g = (c >> 8) & 0xff, b = c & 0xff;
   return ((clamp(r + (255 - r) * t) << 16) | (clamp(g + (255 - g) * t) << 8) | clamp(b + (255 - b) * t)) >>> 0;
 }
-function darken(c: number, t: number) {
+function darken(c, t) {
   const r = (c >> 16) & 0xff, g = (c >> 8) & 0xff, b = c & 0xff;
   return ((clamp(r * (1 - t)) << 16) | (clamp(g * (1 - t)) << 8) | clamp(b * (1 - t))) >>> 0;
 }
 
 // --- Pintores --------------------------------------------------------------
-function paintSolid(ctx: CanvasRenderingContext2D, w: number, h: number, c: string) {
+function paintSolid(ctx, w, h, c) {
   ctx.fillStyle = c;
   ctx.fillRect(0, 0, w, h);
 }
 
-function paintMadera(ctx: CanvasRenderingContext2D, w: number, h: number, base: string, light: string, dark: string) {
+function paintMadera(ctx, w, h, base, light, dark) {
   // Fondo base
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, w, h);
@@ -132,7 +148,7 @@ function paintMadera(ctx: CanvasRenderingContext2D, w: number, h: number, base: 
   }
 }
 
-function paintBaldosa(ctx: CanvasRenderingContext2D, w: number, h: number, base: string, _light: string, dark: string) {
+function paintBaldosa(ctx, w, h, base, _light, dark) {
   ctx.fillStyle = dark;
   ctx.fillRect(0, 0, w, h);
   const tileSize = 32;
@@ -148,7 +164,7 @@ function paintBaldosa(ctx: CanvasRenderingContext2D, w: number, h: number, base:
   }
 }
 
-function paintLadrillo(ctx: CanvasRenderingContext2D, w: number, h: number, base: string, dark: string) {
+function paintLadrillo(ctx, w, h, base, dark) {
   ctx.fillStyle = dark;
   ctx.fillRect(0, 0, w, h);
   const bh = 14; // alto de cada ladrillo
@@ -164,7 +180,7 @@ function paintLadrillo(ctx: CanvasRenderingContext2D, w: number, h: number, base
   }
 }
 
-function paintMarmol(ctx: CanvasRenderingContext2D, w: number, h: number, base: string, light: string) {
+function paintMarmol(ctx, w, h, base, light) {
   // Fondo base
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, w, h);
@@ -187,7 +203,7 @@ function paintMarmol(ctx: CanvasRenderingContext2D, w: number, h: number, base: 
   ctx.globalAlpha = 1;
 }
 
-function paintPiedra(ctx: CanvasRenderingContext2D, w: number, h: number, base: string, _light: string, dark: string) {
+function paintPiedra(ctx, w, h, base, _light, dark) {
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, w, h);
   const stones = 50;
@@ -203,7 +219,7 @@ function paintPiedra(ctx: CanvasRenderingContext2D, w: number, h: number, base: 
   }
 }
 
-function withAlpha(hexColor: string, factor: number): string {
+function withAlpha(hexColor, factor) {
   // Multiplica el brillo de un color hex por un factor.
   const r = parseInt(hexColor.slice(1, 3), 16);
   const g = parseInt(hexColor.slice(3, 5), 16);
