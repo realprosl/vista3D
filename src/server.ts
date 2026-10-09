@@ -14,7 +14,7 @@
 import express, { Request, Response, NextFunction } from "express";
 import multer from "multer";
 import { randomUUID } from "node:crypto";
-import { mkdirSync, writeFileSync, existsSync, readFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, existsSync, readFileSync, rmSync, readdirSync, statSync } from "node:fs";
 import { join, resolve, extname } from "node:path";
 import { parseSvg, contourBounds } from "./svg-to-3d";
 
@@ -130,6 +130,59 @@ app.post("/upload", upload.single("svg"), (req: Request, res: Response) => {
     bounds: { widthCm, heightCm },
     contourCount: parseResult.contours.length,
   });
+});
+
+/** Borra un plano por id. */
+function deleteSvg(id: string): boolean {
+  if (!/^[a-zA-Z0-9-]+$/.test(id)) return false;
+  const dir = join(UPLOADS, id);
+  if (!existsSync(dir)) return false;
+  rmSync(dir, { recursive: true, force: true });
+  return true;
+}
+
+/** Devuelve la lista de planos subidos. */
+app.get("/api/list", (_req, res) => {
+  if (!existsSync(UPLOADS)) {
+    res.json({ planos: [] });
+    return;
+  }
+  const entries = readdirSync(UPLOADS);
+  const planos = [];
+  for (const entry of entries) {
+    if (entry === ".gitkeep") continue;
+    const svgPath = join(UPLOADS, entry, "svg.svg");
+    if (!existsSync(svgPath)) continue;
+    try {
+      const stat = statSync(join(UPLOADS, entry));
+      const content = readFileSync(svgPath, "utf-8");
+      const parseResult = parseSvg(content);
+      const main = parseResult.contours[0];
+      const bounds = contourBounds(main);
+      planos.push({
+        id: entry,
+        viewUrl: `/v/${entry}`,
+        createdAt: stat.mtime.toISOString(),
+        widthCm: Math.round(bounds.maxX - bounds.minX),
+        heightCm: Math.round(bounds.maxY - bounds.minY),
+      });
+    } catch {
+      // Si el SVG no parsea, lo saltamos.
+    }
+  }
+  // Mas recientes primero.
+  planos.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  res.json({ planos });
+});
+
+/** Borra un plano por id. */
+app.delete("/api/svg/:id", (req, res) => {
+  const ok = deleteSvg(req.params.id);
+  if (!ok) {
+    res.status(404).json({ error: "Plano no encontrado o id invalido" });
+    return;
+  }
+  res.json({ status: "deleted", id: req.params.id });
 });
 
 /** Archivos estaticos (CSS, JS, three.js local si lo hubiera). */
