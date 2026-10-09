@@ -959,8 +959,14 @@ for (const info of paredesInfo) {
   //   2 = laterales (bordes superior, inferior y de los huecos; se ven
   //       desde arriba o desde el interior de la casa).
   // Fachada e interior son editables desde el panel; los laterales usan
-  // la fachada para no romper la consistencia visual.
-  const wMat = [paredExtMat, paredIntMat, paredExtMat];
+  // Cada mesh de pared tiene 3 materiales INDEPENDIENTES:
+  //   [0] = cara frontal (fachada)
+  //   [1] = cara trasera (interior / pintura)
+  //   [2] = caras laterales (bordes superior/inferior y de huecos;
+  //         tambien se ven como fachada desde arriba)
+  // Usamos clones para que cambiar uno no afecte a los otros ni a
+  // los defaults globales (paredExtMat / paredIntMat).
+  const wMat = [paredExtMat.clone(), paredIntMat.clone(), paredExtMat.clone()];
   for (const m of meshes) {
     m.material = wMat;
     exteriorGroup.add(m);
@@ -1184,25 +1190,26 @@ function applyMPToMesh(key, cfg) {
   if (tipo === "wall") {
     const meshes = wallMeshLookup.get(id + "_meshes") || [];
     for (const mesh of meshes) {
+      // Cada mesh de pared tiene 3 materiales (ExtrudeGeometry):
+      //   [0] = cara frontal (fachada)        -> exterior
+      //   [1] = cara trasera (pintura)         -> interior
+      //   [2] = caras laterales (bordes)       -> exterior (siguen siendo fachada)
+      // Si por alguna razon mesh.material no es un array, lo inicializamos.
+      if (!Array.isArray(mesh.material) || mesh.material.length < 3) {
+        mesh.material = [paredExtMat.clone(), paredIntMat.clone(), paredExtMat.clone()];
+      }
       if (face === "exterior") {
-        // Fachada (slots 0 y 2). Slot 2 (laterales) sigue siendo fachada.
-        const wMat = makeMaterial({ color: hexToInt(cfg.color), texture: cfg.texture, roughness: 0.9 });
-        if (Array.isArray(mesh.material)) {
-          if (mesh.material[0]) mesh.material[0].dispose();
-          if (mesh.material[2]) mesh.material[2].dispose();
-        }
-        mesh.material = [wMat, mesh.material[1] || paredIntMat, wMat];
+        // Fachada (slot 0) y bordes (slot 2). Mutar los materiales en sitio
+        // para no crear nuevos y no romper referencias compartidas.
+        applyMatFromCfg(mesh.material[0], cfg, { roughness: 0.9 });
+        applyMatFromCfg(mesh.material[2], cfg, { roughness: 0.9 });
       } else if (face === "interior") {
-        const wMat = makeMaterial({ color: hexToInt(cfg.color), texture: cfg.texture, roughness: 0.9 });
-        if (Array.isArray(mesh.material) && mesh.material[1]) mesh.material[1].dispose();
-        mesh.material = [mesh.material[0] || paredExtMat, wMat, mesh.material[2] || paredExtMat];
+        // Cara trasera (slot 1). Mutar el material existente.
+        applyMatFromCfg(mesh.material[1], cfg, { roughness: 0.9 });
       } else if (face === "extrusion") {
-        // La extrusión de la pared es el fondo del hueco. Reaplica hueco
-        // general (mismo material compartido con todos los huecos).
-        // (No se representa en el mesh de la pared sino en el panel del
-        //  hueco, asi que se ignora aqui o se redirige a huecoMat.)
-        // Lo dejamos vacio: las paredes no tienen "extrusion" visible
-        // salvo que tengan aperturas (que tienen su propio elemento).
+        // La extrusión de la pared es el fondo del hueco. No se aplica
+        // al mesh de la pared (el hueco tiene su propio mesh/material).
+        // Lo dejamos vacio: sin efecto.
       }
     }
     return;
