@@ -344,11 +344,16 @@ function readMaterialConfig() {
 }
 
 function makeMaterial(cfg) {
+  // Cuando hay textura, el color del material se pone a blanco (#ffffff)
+  // para NO tintar la textura. La textura ya esta pintada con el color
+  // base que eligio el usuario (paintMadera(color), paintLadrillo(color), ...).
+  // Si el material tuviera color, multiplicaria la textura y la oscureceria.
+  const hasTexture = cfg.texture && cfg.texture !== "liso";
   const mat = new THREE.MeshStandardMaterial({
-    color: cfg.color,
+    color: hasTexture ? 0xffffff : cfg.color,
     roughness: cfg.roughness ?? 0.8,
   });
-  if (cfg.texture && cfg.texture !== "liso") {
+  if (hasTexture) {
     mat.map = getTexture(cfg.texture, cfg.color);
     // Importante: marcar el material para que Three.js actualice los
     // uniforms (incluido el map) en la siguiente frame.
@@ -757,132 +762,73 @@ function hexToInt(hex) {
   return parseInt(hex.replace("#", ""), 16);
 }
 
+// Helper: aplica color/textura/roughness a un material existente.
+// Si hay textura, pone el color del material a blanco para no tintar
+// la textura (la textura ya esta pintada con el color base).
+function applyMatFromCfg(mat, cfg, opts) {
+  const hasTexture = cfg.texture && cfg.texture !== "liso";
+  if (hasTexture) {
+    mat.color.setHex(0xffffff);
+    mat.map = getTexture(cfg.texture, cfg.color);
+  } else {
+    mat.color.setHex(hexToInt(cfg.color));
+    mat.map = null;
+  }
+  if (opts && opts.roughness != null) mat.roughness = opts.roughness;
+  if (opts && opts.transparent != null) {
+    mat.transparent = opts.transparent;
+    if (opts.opacity != null) mat.opacity = opts.opacity;
+  }
+  mat.needsUpdate = true;
+}
+
 // Aplica el material de un key al mesh/grupo correspondiente.
 function applyMPToMesh(key, cfg) {
   if (key === "suelo") {
-    // IMPORTANTE: en lugar de crear un material nuevo y reasignar
-    // suelo.material (lo que puede dejar a Three.js con materiales
-    // fantasma en GPU), mutamos el material existente: solo cambiamos
-    // color, map y roughness. Esto es la forma robusta de actualizar
-    // materiales en Three.js.
-    sueloMat.color.setHex(hexToInt(cfg.color));
-    if (cfg.texture && cfg.texture !== "liso") {
-      sueloMat.map = getTexture(cfg.texture, cfg.color);
-    } else {
-      sueloMat.map = null;
-    }
-    sueloMat.roughness = 0.85;
-    sueloMat.needsUpdate = true;
+    applyMatFromCfg(sueloMat, cfg, { roughness: 0.85 });
   } else if (key === "suelo-debajo") {
-    sueloDebajoMat.color.setHex(hexToInt(cfg.color));
-    if (cfg.texture && cfg.texture !== "liso") {
-      sueloDebajoMat.map = getTexture(cfg.texture, cfg.color);
-    } else {
-      sueloDebajoMat.map = null;
-    }
-    sueloDebajoMat.roughness = 0.85;
-    sueloDebajoMat.needsUpdate = true;
+    applyMatFromCfg(sueloDebajoMat, cfg, { roughness: 0.85 });
   } else if (key === "cristal") {
-    cristalMat.color.setHex(hexToInt(cfg.color));
-    if (cfg.texture && cfg.texture !== "liso") {
-      cristalMat.map = getTexture(cfg.texture, cfg.color);
-    } else {
-      cristalMat.map = null;
-    }
-    cristalMat.roughness = 0.15;
-    cristalMat.opacity = 0.55;
-    cristalMat.transparent = true;
-    cristalMat.needsUpdate = true;
+    applyMatFromCfg(cristalMat, cfg, { roughness: 0.15, transparent: true, opacity: 0.55 });
   } else if (key === "puerta") {
-    puertaMat.color.setHex(hexToInt(cfg.color));
-    if (cfg.texture && cfg.texture !== "liso") {
-      puertaMat.map = getTexture(cfg.texture, cfg.color);
-    } else {
-      puertaMat.map = null;
-    }
-    puertaMat.roughness = 0.7;
-    puertaMat.needsUpdate = true;
+    applyMatFromCfg(puertaMat, cfg, { roughness: 0.7 });
   } else if (key === "hueco") {
-    huecoMat.color.setHex(hexToInt(cfg.color));
-    if (cfg.texture && cfg.texture !== "liso") {
-      huecoMat.map = getTexture(cfg.texture, cfg.color);
-    } else {
-      huecoMat.map = null;
-    }
-    huecoMat.roughness = 0.95;
-    huecoMat.needsUpdate = true;
+    applyMatFromCfg(huecoMat, cfg, { roughness: 0.95 });
   } else if (key === "pared-default-ext") {
-    paredExtMat.color.setHex(hexToInt(cfg.color));
-    if (cfg.texture && cfg.texture !== "liso") {
-      paredExtMat.map = getTexture(cfg.texture, cfg.color);
-    } else {
-      paredExtMat.map = null;
-    }
-    paredExtMat.roughness = 0.9;
-    paredExtMat.needsUpdate = true;
+    applyMatFromCfg(paredExtMat, cfg, { roughness: 0.9 });
     applyWallsDefault();
   } else if (key === "pared-default-int") {
-    paredIntMat.color.setHex(hexToInt(cfg.color));
-    if (cfg.texture && cfg.texture !== "liso") {
-      paredIntMat.map = getTexture(cfg.texture, cfg.color);
-    } else {
-      paredIntMat.map = null;
-    }
-    paredIntMat.roughness = 0.9;
-    paredIntMat.needsUpdate = true;
+    applyMatFromCfg(paredIntMat, cfg, { roughness: 0.9 });
     applyWallsDefault();
   } else if (key.startsWith("wall-ext:")) {
     const wallId = key.slice("wall-ext:".length);
     const meshes = wallMeshLookup.get(wallId + "_meshes") || [];
     for (const mesh of meshes) {
-      if (Array.isArray(mesh.material) && mesh.material.length >= 3) {
-        // Mutar los materiales de fachada (slots 0 y 2) en lugar de reasignar.
-        for (const idx of [0, 2]) {
-          const m = mesh.material[idx];
-          m.color.setHex(hexToInt(cfg.color));
-          if (cfg.texture && cfg.texture !== "liso") {
-            m.map = getTexture(cfg.texture, cfg.color);
-          } else {
-            m.map = null;
-          }
-          m.roughness = 0.9;
-          m.needsUpdate = true;
-        }
-      } else {
-        // Fallback: array de 3.
-        const wMat = makeMaterial({ color: hexToInt(cfg.color), texture: cfg.texture, roughness: 0.9 });
-        mesh.material = [wMat, paredIntMat, wMat];
+      // Disponer los materiales de fachada (slots 0 y 2) y crear nuevos
+      // completos. Es la unica forma de que Three.js suba el `map` a
+      // la GPU cuando se cambia la textura en un mesh con array.
+      const wMat = makeMaterial({ color: hexToInt(cfg.color), texture: cfg.texture, roughness: 0.9 });
+      if (Array.isArray(mesh.material)) {
+        if (mesh.material[0]) mesh.material[0].dispose();
+        if (mesh.material[2]) mesh.material[2].dispose();
       }
+      // Reasignar el array entero: slot 0 (fachada), 1 (interior, intacto), 2 (sides).
+      mesh.material = [wMat, mesh.material[1] || paredIntMat, wMat];
     }
   } else if (key.startsWith("wall-int:")) {
     const wallId = key.slice("wall-int:".length);
     const meshes = wallMeshLookup.get(wallId + "_meshes") || [];
     for (const mesh of meshes) {
-      if (Array.isArray(mesh.material) && mesh.material.length >= 2) {
-        const m = mesh.material[1];
-        m.color.setHex(hexToInt(cfg.color));
-        if (cfg.texture && cfg.texture !== "liso") {
-          m.map = getTexture(cfg.texture, cfg.color);
-        } else {
-          m.map = null;
-        }
-        m.roughness = 0.9;
-        m.needsUpdate = true;
-      } else {
-        const wMat = makeMaterial({ color: hexToInt(cfg.color), texture: cfg.texture, roughness: 0.9 });
-        mesh.material = [paredExtMat, wMat, paredExtMat];
+      // Misma idea: crear material nuevo y reasignar el array.
+      const wMat = makeMaterial({ color: hexToInt(cfg.color), texture: cfg.texture, roughness: 0.9 });
+      if (Array.isArray(mesh.material) && mesh.material[1]) {
+        mesh.material[1].dispose();
       }
+      mesh.material = [mesh.material[0] || paredExtMat, wMat, mesh.material[2] || paredExtMat];
     }
   } else if (key.startsWith("wall-apertura:") || key === "pared-default-apertura" || key === "puerta") {
     // Cambia el material de las PUERTAS de esta pared (o global).
-    puertaMat.color.setHex(hexToInt(cfg.color));
-    if (cfg.texture && cfg.texture !== "liso") {
-      puertaMat.map = getTexture(cfg.texture, cfg.color);
-    } else {
-      puertaMat.map = null;
-    }
-    puertaMat.roughness = 0.7;
-    puertaMat.needsUpdate = true;
+    applyMatFromCfg(puertaMat, cfg, { roughness: 0.7 });
   }
 }
 
@@ -1168,6 +1114,18 @@ if (params.get("seed") && suelo && suelo.material) {
     "needsUpdate:", mat && mat.map && mat.map.needsUpdate,
     "color:", mat && mat.color && mat.color.getHexString(),
     "repeat:", mat && mat.map && mat.map.repeat.x, mat && mat.map && mat.map.repeat.y);
+  // Log de las paredes
+  for (const [k, meshes] of (wallMeshLookup || new Map()).entries()) {
+    for (let i = 0; i < meshes.length; i++) {
+      const mesh = meshes[i];
+      if (!mesh.material || !Array.isArray(mesh.material)) continue;
+      const m0 = mesh.material[0];
+      console.log("[post-seed wall]", k, "i=" + i,
+        "mat0.map:", m0 && m0.map ? "YES" : "NO",
+        "tex-repeat:", m0 && m0.map && m0.map.repeat.x, m0 && m0.map && m0.map.repeat.y,
+        "color:", m0 && m0.color && m0.color.getHexString());
+    }
+  }
   // Forzar un re-render adicional después de 1 frame
   setTimeout(() => {
     const m2 = Array.isArray(suelo.material) ? suelo.material[0] : suelo.material;
