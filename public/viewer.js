@@ -375,13 +375,18 @@ for (const info of paredesInfo) {
   const midZ = (z1 + z2) / 2 + heightCm / 2;
   for (const a of info.apertures) {
     // Material segun el tipo.
+    // Puertas: panel opaco color crema (no transparente para que tape el
+    // fondo si la pared no se ha subdividido correctamente).
+    // Ventanas: cristal semitransparente azul.
     const mat = a.kind === "door"
-      ? new THREE.MeshStandardMaterial({ color: 0xffe8b0, roughness: 0.7, transparent: true, opacity: 0.85 })
-      : new THREE.MeshStandardMaterial({ color: 0xcce4ff, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.5 });
+      ? new THREE.MeshStandardMaterial({ color: 0xf5d99a, roughness: 0.6 })
+      : new THREE.MeshStandardMaterial({ color: 0xb8d8f0, roughness: 0.15, metalness: 0.2, transparent: true, opacity: 0.6 });
     // El panel se coloca a xCm del inicio de la pared, centrado.
+    // GROSOR igual al grosorCm de la pared para que encaje exactamente
+    // en el hueco que dej\u00f3 la subdivisi\u00f3n (la pared tampoco est\u00e1 ah\u00ed).
     const cx = a.xCm + a.widthCm / 2 - len / 2;
     const cy = a.yCm + a.heightCm / 2;
-    const geom = new THREE.BoxGeometry(a.widthCm, a.heightCm, grosorCm * 0.4);
+    const geom = new THREE.BoxGeometry(a.widthCm, a.heightCm, grosorCm);
     geom.translate(0, cy, 0);
     geom.rotateY(-angle);
     geom.translate(midX + cx * Math.cos(angle), 0, midZ + cx * Math.sin(angle));
