@@ -363,7 +363,7 @@ const MALTO = 270;
 
   // Paredes exteriores (4 lados del rectangulo).
   const exteriorParedes = [
-    { id: "wall-south", name: "Muro sur",  // fachade (puerta entrada)
+    { id: "wall-south", name: "Muro sur",  // fachada (puerta entrada)
       x1: maraOx, y1: maraOy + MH, x2: maraOx + MW, y2: maraOy + MH },
     { id: "wall-north", name: "Muro norte",
       x1: maraOx, y1: maraOy,     x2: maraOx + MW, y2: maraOy },
@@ -406,19 +406,19 @@ const MALTO = 270;
     }
     return out.join("\n  ");
   }
-  function segmentarH(x, y1, y2, hueco, id) {
+  function segmentarH(x, y1, y2, hueco, id, name) {
     const out = [];
     if (hueco) {
-      out.push(`<line class="pared" data-id="${id}-a" data-group="wall" data-room="salon"
+      out.push(`<line class="pared" data-id="${id}-a" data-name="${name || ""}" data-group="wall" data-room="salon"
         data-color-exterior="#d4c4a0" data-color-interior="#f5ead2" data-color-extrusion="#8b7355"
         data-texture-exterior="liso" data-texture-interior="liso" data-texture-extrusion="liso"
         x1="${x}" y1="${y1}" x2="${x}" y2="${hueco.y1}" stroke="#5a3a1a" stroke-width="3"/>`);
-      out.push(`<line class="pared" data-id="${id}-b" data-group="wall" data-room="salon"
+      out.push(`<line class="pared" data-id="${id}-b" data-name="${name || ""}" data-group="wall" data-room="dormitorio"
         data-color-exterior="#d4c4a0" data-color-interior="#f5ead2" data-color-extrusion="#8b7355"
         data-texture-exterior="liso" data-texture-interior="liso" data-texture-extrusion="liso"
         x1="${x}" y1="${hueco.y2}" x2="${x}" y2="${y2}" stroke="#5a3a1a" stroke-width="3"/>`);
     } else {
-      out.push(`<line class="pared" data-id="${id}" data-group="wall" data-room="salon"
+      out.push(`<line class="pared" data-id="${id}" data-name="${name || ""}" data-group="wall" data-room="salon"
         data-color-exterior="#d4c4a0" data-color-interior="#f5ead2" data-color-extrusion="#8b7355"
         data-texture-exterior="liso" data-texture-interior="liso" data-texture-extrusion="liso"
         x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="#5a3a1a" stroke-width="3"/>`);
@@ -501,7 +501,8 @@ const MALTO = 270;
         data-texture-top="liso" data-texture-bottom="liso"
         d="${pathD}" fill="#c4a988" stroke="#8a6a48" stroke-width="3"/>
   ${segmentarH(muroInteriorX, maraOy, maraOy + MH,
-    { y1: puertaInteriorY1, y2: puertaInteriorY2 }, "wall-mid")}
+    { y1: puertaInteriorY1, y2: puertaInteriorY2 }, "wall-mid",
+    "Muro medio salón-dormitorio")}
   ${exteriorParedesSvg}
   ${mueblesSvg}
   ${aperturasMeta}

@@ -4,11 +4,11 @@
         data-color-top="#c4a988" data-color-bottom="#6a5a48"
         data-texture-top="liso" data-texture-bottom="liso"
         d="M 50 50 L 1050 50 L 1050 850 L 50 850 Z" fill="#c4a988" stroke="#8a6a48" stroke-width="3"/>
-  <line class="pared" data-id="wall-mid-a" data-group="wall" data-room="salon"
+  <line class="pared" data-id="wall-mid-a" data-name="Muro medio salón-dormitorio" data-group="wall" data-room="salon"
         data-color-exterior="#d4c4a0" data-color-interior="#f5ead2" data-color-extrusion="#8b7355"
         data-texture-exterior="liso" data-texture-interior="liso" data-texture-extrusion="liso"
         x1="600" y1="50" x2="600" y2="450" stroke="#5a3a1a" stroke-width="3"/>
-  <line class="pared" data-id="wall-mid-b" data-group="wall" data-room="salon"
+  <line class="pared" data-id="wall-mid-b" data-name="Muro medio salón-dormitorio" data-group="wall" data-room="dormitorio"
         data-color-exterior="#d4c4a0" data-color-interior="#f5ead2" data-color-extrusion="#8b7355"
         data-texture-exterior="liso" data-texture-interior="liso" data-texture-extrusion="liso"
         x1="600" y1="550" x2="600" y2="850" stroke="#5a3a1a" stroke-width="3"/>

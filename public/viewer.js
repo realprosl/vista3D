@@ -493,60 +493,175 @@ function buildWallMesh([x1, z1], [x2, z2], apertures = []) {
 }
 
 // --- 6a) Emparejar alzados con paredes -------------------------------------
-// Calculamos las 4 paredes exteriores del bounding box rectangular del
-// contorno, y buscamos el alzado que coincida con cada una por
-// (data-wall, data-wall-width) y por la longitud real de la pared.
+// Funcion de utilidad para calcular la longitud de un segmento.
 function wallLength([x1, z1], [x2, z2]) {
   return Math.sqrt((x2 - x1) ** 2 + (z2 - z1) ** 2);
 }
-// Las paredes exteriores (en orden de generacion): para una planta con
-// contorno mainContour = [p0, p1, ..., pN-1, p0], los lados son
-// (p0,p1), (p1,p2), ..., (pN-1,p0). Para una planta rectangular
-// axis-aligned en coords SVG (xCm, yCm), los 4 lados son:
-//   (0) lado entre p0 y p1: horizontal, y=minY (NORTE) o y=maxY (SUR)
-//   (1) lado entre p1 y p2: vertical, x=maxX (ESTE) o x=minX (OESTE)
-//   (2) lado entre p2 y p3: horizontal
-//   (3) lado entre p3 y p0: vertical
-// Pero como mainContour no garantiza el orden de los puntos, las
-// paredes se identifican por su orientacion: las horizontales (dz=0)
-// son N o S segun su Y; las verticales (dx=0) son E u O segun su X.
-const paredesInfo = []; // Array<{ wall: 'N'|'S'|'E'|'W', seg: [[x1,z1],[x2,z2]], len, apertures }>
-for (const seg of exteriorWalls) {
-  const [[x1, z1], [x2, z2]] = seg;
-  const len = wallLength(seg[0], seg[1]);
-  const isHoriz = Math.abs(z2 - z1) < 0.5;
-  let wall = null;
-  if (isHoriz) {
-    // Horizontal: el lado con y mas baja es N (en SVG, y crece hacia abajo,
-    // asi que y=minY es el norte visual, y=maxY es el sur visual).
-    // Usamos los valores LOCALES de las paredes (ya centradas), no el
-    // rango global del SVG, porque pueden diferir si hay transformaciones.
-    const y = (z1 + z2) / 2;
-    const localMidY = (localMinY + localMaxY) / 2;
-    wall = y < localMidY ? "N" : "S";
-  } else {
-    // Vertical: lado izquierdo (x<mid) es W (Oeste), lado derecho (x>mid) es E (Este).
-    const x = (x1 + x2) / 2;
-    const localMidX = (localMinX + localMaxX) / 2;
-    wall = x < localMidX ? "W" : "E";
+//
+// Estrategia de paredes (a partir de v0.6.0):
+//   - Si elementsData esta disponible (endpoint /elements), usamos las
+//     paredes del parser nuevo (parseSvgElements). Cada pared tiene
+//     data-id, data-name, contour (2 puntos) y aperturas vinculadas
+//     por wallId.
+//   - Si no, fallback al sistema legacy: 4 paredes del bounding box
+//     clasificadas por orientacion como N/S/E/W.
+//
+// Con esto el panel de materiales muestra los nombres reales del SVG
+// ("Muro sur") en vez de genericos ("PARED SUR"), y las paredes
+// interiores (muro entre habitaciones) se renderizan tambien.
+const paredesInfo = []; // Array<{ wall, seg, len, apertures, name, room, ... }>
+
+if (elementsData && elementsData.paredes && elementsData.paredes.length > 0) {
+  // --- MODO NUEVO: usar paredes del parser con data-id ---
+  // Para cada pared del parser, calculamos su segmento (2 puntos del
+  // contour) y buscamos aperturas en elementsData.alzados o
+  // elementsData.aperturasPlanta vinculadas por wallId o parentWallId.
+  for (const p of elementsData.paredes) {
+    // El contour de una pared de tipo <line> tiene 2-3 puntos (origen,
+    // destino, y a veces origen duplicado por la Z del path).
+    if (!p.contour || p.contour.length < 2) continue;
+    const c0 = p.contour[0];
+    const cN = p.contour[p.contour.length - 1];
+    // Si el ultimo punto coincide con el primero, usar el penultimo como
+    // destino (es el caso tipico de las paredes como <line> que el parser
+    // cierra con el primer punto).
+    let endPt = cN;
+    if (cN.x === c0.x && cN.y === c0.y && p.contour.length >= 2) {
+      endPt = p.contour[p.contour.length - 2];
+    }
+    const seg = [[c0.x, c0.y], [endPt.x, endPt.y]];
+    const len = wallLength(seg[0], seg[1]);
+    if (len < 1) continue;
+
+    // Buscar aperturas vinculadas a esta pared.
+    // 1) Por parentWallId en aperturasPlanta.
+    // 2) Por wallId en alzados.
+    // 3) Por "wallId base" quitando sufijos (-a, -b) para paredes
+    //    que el parser segmenta por aperturas (ej: wall-mid-a/b
+    //    vienen de wall-mid con un hueco).
+    const apertures = [];
+    const wallId = p.id;
+    const wallIdBase = wallId.replace(/-[a-z]$/, "");
+    const matchesWallId = (a) => a.wallId === wallId || a.parentWallId === wallId
+      || a.wallId === wallIdBase || a.parentWallId === wallIdBase;
+    // Aperturas de la planta vinculadas a esta pared.
+    // Para paredes segmentadas (sufijo -a, -b), las aperturas con
+    // wallId=base (sin sufijo) se asignan SOLO al primer segmento
+    // encontrado, asi no se duplican en ambos lados del hueco.
+    const isSegmentedSuffix = /-[a-z]$/.test(wallId);
+    for (const a of (elementsData.aperturasPlanta || [])) {
+      const aMatches = matchesWallId(a);
+      if (!aMatches) continue;
+      // Si la pared es segmentada y la apertura usa el wallId base
+      // (sin sufijo), solo asignar al primer segmento -a.
+      if (isSegmentedSuffix && (a.wallId === wallIdBase || a.parentWallId === wallIdBase)) {
+        if (!wallId.endsWith("-a")) continue; // Solo el primer segmento recibe la apertura.
+      }
+      // Convertir el contour (5 puntos tipicamente) en xCm/widthCm.
+      const ax0 = a.contour[0].x, ay0 = a.contour[0].y;
+      const ax1 = a.contour[1].x, ay1 = a.contour[1].y;
+      const minX = Math.min(ax0, ax1);
+      const maxX = Math.max(ax0, ax1);
+      // Para una pared horizontal (la fachada sur de Mara), la apertura
+      // ocupa una porcion del eje X, y esta justo en y=maxY. La
+      // altura de la apertura en el alzado esta en yCm (medido desde
+      // el suelo del alzado, no de la planta).
+      // Usamos la informacion del alzado si existe, si no, fallback
+      // a una estimacion razonable.
+      const alzadoDeEsaPared = elementsData.alzados && elementsData.alzados[wallId];
+      let yCm = 0, heightCm = 0;
+      if (alzadoDeEsaPared) {
+        // Buscar la apertura con el mismo id en el alzado.
+        const alzadoAp = (alzadoDeEsaPared.apertures || []).find(ap => ap.id === a.id);
+        if (alzadoAp) {
+          yCm = alzadoAp.yCm;
+          heightCm = alzadoAp.heightCm;
+        }
+      }
+      // Tipo (door/window/hole).
+      const kind = a.group === "door" ? "door" : a.group === "window" ? "window" : "hole";
+      apertures.push({
+        kind,
+        xCm: minX,
+        widthCm: maxX - minX,
+        yCm,
+        heightCm,
+        id: a.id,
+      });
+    }
+    // Aperturas de los alzados vinculados a esta pared.
+    const alzado = elementsData.alzados && elementsData.alzados[wallId];
+    if (alzado) {
+      for (const a of (alzado.apertures || [])) {
+        // Si ya esta en apertures (por estar tambien en la planta), no duplicar.
+        if (apertures.find(x => x.id === a.id)) continue;
+        const kind = a.group === "door" ? "door" : a.group === "window" ? "window" : "hole";
+        apertures.push({
+          kind,
+          xCm: a.xCm,
+          widthCm: a.widthCm,
+          yCm: a.yCm,
+          heightCm: a.heightCm,
+          id: a.id,
+        });
+      }
+    }
+
+    paredesInfo.push({
+      wall: p.id, // data-id de la pared (en vez de N/S/E/W)
+      seg,
+      len,
+      apertures,
+      name: p.name,
+      room: p.room,
+      colorExterior: p.colorExterior,
+      colorInterior: p.colorInterior,
+      colorExtrusion: p.colorExtrusion,
+    });
   }
-  // Buscar alzado que coincida con esta pared.
-  let apertures = [];
-  for (const a of alzadosMeta) {
-    const meta = a.meta;
-    if (meta.wall === wall && meta.wallWidthCm != null) {
-      // Coincidencia por wall y wallWidthCm.
-      if (Math.abs(meta.wallWidthCm - len) < 5) {
+} else {
+  // --- MODO LEGACY: bounding box clasificado por orientacion ---
+  // Las paredes exteriores (en orden de generacion): para una planta con
+  // contorno mainContour = [p0, p1, ..., pN-1, p0], los lados son
+  // (p0,p1), (p1,p2), ..., (pN-1,p0). Para una planta rectangular
+  // axis-aligned en coords SVG (xCm, yCm), los 4 lados son:
+  //   (0) lado entre p0 y p1: horizontal, y=minY (NORTE) o y=maxY (SUR)
+  //   (1) lado entre p1 y p2: vertical, x=maxX (ESTE) o x=minX (OESTE)
+  //   (2) lado entre p2 y p3: horizontal
+  //   (3) lado entre p3 y p0: vertical
+  // Pero como mainContour no garantiza el orden de los puntos, las
+  // paredes se identifican por su orientacion: las horizontales (dz=0)
+  // son N o S segun su Y; las verticales (dx=0) son E u O segun su X.
+  for (const seg of exteriorWalls) {
+    const [[x1, z1], [x2, z2]] = seg;
+    const len = wallLength(seg[0], seg[1]);
+    const isHoriz = Math.abs(z2 - z1) < 0.5;
+    let wall = null;
+    if (isHoriz) {
+      const y = (z1 + z2) / 2;
+      const localMidY = (localMinY + localMaxY) / 2;
+      wall = y < localMidY ? "N" : "S";
+    } else {
+      const x = (x1 + x2) / 2;
+      const localMidX = (localMinX + localMaxX) / 2;
+      wall = x < localMidX ? "W" : "E";
+    }
+    // Buscar alzado que coincida con esta pared.
+    let apertures = [];
+    for (const a of alzadosMeta) {
+      const meta = a.meta;
+      if (meta.wall === wall && meta.wallWidthCm != null) {
+        if (Math.abs(meta.wallWidthCm - len) < 5) {
+          apertures = meta.apertures;
+          break;
+        }
+      } else if (meta.wall === wall && Math.abs(meta.widthCm - len) < 5) {
         apertures = meta.apertures;
         break;
       }
-    } else if (meta.wall === wall && Math.abs(meta.widthCm - len) < 5) {
-      // Fallback: wall coincide y width del viewBox coincide.
-      apertures = meta.apertures;
-      break;
     }
+    paredesInfo.push({ wall, seg, len, apertures });
   }
-  paredesInfo.push({ wall, seg, len, apertures });
 }
 
 // --- 6b) Construir meshes de pared (con aperturas) -------------------------
@@ -615,14 +730,31 @@ const wallList = [];
 const aperturaList = [];
 const _wallIdSet = new Set();
 
-// Helper: nombre legible de un wallId (N/S/E/O -> Norte/Sur/Este/Oeste,
-// o el data-name del elemento si esta disponible).
+// Helper: nombre legible de un wallId. En modo nuevo, el wallId es el
+// data-id de la pared (ej: "wall-south"). Buscamos en elementsData
+// el data-name correspondiente. En modo legacy, el wallId es N/S/E/W.
+// Si no hay data-name, generamos uno a partir del wallId (ej:
+// "wall-mid-a" -> "Muro medio (A)").
 function niceWallName(wallId) {
   if (elementsData && elementsData.paredes) {
     const elem = elementsData.paredes.find(p => p.id === wallId);
     if (elem && elem.name) return elem.name;
   }
-  return { N: "Norte", S: "Sur", E: "Este", O: "Oeste" }[wallId] || wallId;
+  // Si el wallId tiene sufijo -a/-b, es una pared segmentada.
+  const segMatch = /^(.+)-([a-z])$/.exec(wallId);
+  if (segMatch) {
+    const base = segMatch[1];
+    const suffix = segMatch[2].toUpperCase();
+    // Buscar el nombre base.
+    if (elementsData && elementsData.paredes) {
+      // Buscar cualquier pared con id que empieza por el base.
+      const basePared = elementsData.paredes.find(p => p.id === base
+        || p.id.startsWith(base + "-"));
+      if (basePared && basePared.name) return basePared.name + " (parte " + suffix + ")";
+    }
+    return "Muro interior (parte " + suffix + ")";
+  }
+  return { N: "Norte", S: "Sur", E: "Este", W: "Oeste" }[wallId] || wallId;
 }
 
 // Paredes
@@ -630,14 +762,21 @@ for (const info of paredesInfo) {
   if (_wallIdSet.has(info.wall)) continue;
   _wallIdSet.add(info.wall);
   const niceName = niceWallName(info.wall);
+  // Inicializar colores desde el SVG si estan disponibles.
+  const defaultExt = info.colorExterior || ELEMENT_DEFAULTS.wall.exterior.color;
+  const defaultInt = info.colorInterior || ELEMENT_DEFAULTS.wall.interior.color;
+  const defaultExtX = info.colorExtrusion || ELEMENT_DEFAULTS.wall.extrusion.color;
+  const defaultTexExt = info.textureExterior || ELEMENT_DEFAULTS.wall.exterior.texture;
+  const defaultTexInt = info.textureInterior || ELEMENT_DEFAULTS.wall.interior.texture;
+  const defaultTexExtX = info.textureExtrusion || ELEMENT_DEFAULTS.wall.extrusion.texture;
   const w = {
     tipo: "wall",
     id: info.wall,
     label: "Pared " + niceName,
-    wallLabel: "",
-    exterior: { ...ELEMENT_DEFAULTS.wall.exterior },
-    interior: { ...ELEMENT_DEFAULTS.wall.interior },
-    extrusion: { ...ELEMENT_DEFAULTS.wall.extrusion },
+    wallLabel: info.room ? "(habitación " + info.room + ")" : "",
+    exterior: { color: defaultExt, texture: defaultTexExt },
+    interior: { color: defaultInt, texture: defaultTexInt },
+    extrusion: { color: defaultExtX, texture: defaultTexExtX },
   };
   elementList.push(w);
   wallList.push(w);
