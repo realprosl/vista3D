@@ -325,6 +325,7 @@ app.get("/api/projects/:id/elements", (req, res) => {
     widthCm: number;
     heightCm: number;
     wallWidthCm: number | null;
+    viewBox: { x: number; y: number; width: number; height: number } | null;
     apertures: Array<{
       id: string;
       name: string | null;
@@ -355,6 +356,7 @@ app.get("/api/projects/:id/elements", (req, res) => {
           widthCm: elev.widthCm,
           heightCm: elev.heightCm,
           wallWidthCm: elev.wallWidthCm,
+          viewBox: elev.viewBox,
           apertures: elev.apertures,
         };
       } catch {

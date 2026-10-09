@@ -529,7 +529,11 @@ if (elementsData && elementsData.paredes && elementsData.paredes.length > 0) {
     if (cN.x === c0.x && cN.y === c0.y && p.contour.length >= 2) {
       endPt = p.contour[p.contour.length - 2];
     }
-    const seg = [[c0.x, c0.y], [endPt.x, endPt.y]];
+    // IMPORTANTE: aplicar la misma traslacion que el suelo (centrar en
+    // el bounding box) para que las paredes se alineen con el suelo.
+    const [x1, z1] = translate([c0.x, c0.y]);
+    const [x2, z2] = translate([endPt.x, endPt.y]);
+    const seg = [[x1, z1], [x2, z2]];
     const len = wallLength(seg[0], seg[1]);
     if (len < 1) continue;
 
@@ -558,10 +562,12 @@ if (elementsData && elementsData.paredes && elementsData.paredes.length > 0) {
         if (!wallId.endsWith("-a")) continue; // Solo el primer segmento recibe la apertura.
       }
       // Convertir el contour (5 puntos tipicamente) en xCm/widthCm.
-      const ax0 = a.contour[0].x, ay0 = a.contour[0].y;
-      const ax1 = a.contour[1].x, ay1 = a.contour[1].y;
-      const minX = Math.min(ax0, ax1);
-      const maxX = Math.max(ax0, ax1);
+      // Aplicar translate para que las aperturas se alineen con la
+      // pared ya centrada.
+      const [tx0, tz0] = translate([a.contour[0].x, a.contour[0].y]);
+      const [tx1, tz1] = translate([a.contour[1].x, a.contour[1].y]);
+      const minX = Math.min(tx0, tx1);
+      const maxX = Math.max(tx0, tx1);
       // Para una pared horizontal (la fachada sur de Mara), la apertura
       // ocupa una porcion del eje X, y esta justo en y=maxY. La
       // altura de la apertura en el alzado esta en yCm (medido desde
@@ -592,14 +598,19 @@ if (elementsData && elementsData.paredes && elementsData.paredes.length > 0) {
     // Aperturas de los alzados vinculados a esta pared.
     const alzado = elementsData.alzados && elementsData.alzados[wallId];
     if (alzado) {
+      // Para convertir xCm de SVG a mundo, usamos la relacion
+      // xCm_mundo = (xCm_svg / viewBoxWidth) * lenDeLaPared.
+      // viewBoxWidth viene del alzado; si no esta, usamos wallWidthCm.
+      const vbWidth = (alzado.viewBox && alzado.viewBox.width) || alzado.wallWidthCm || len;
+      const scale = (alzado.wallWidthCm || len) / vbWidth;
       for (const a of (alzado.apertures || [])) {
         // Si ya esta en apertures (por estar tambien en la planta), no duplicar.
         if (apertures.find(x => x.id === a.id)) continue;
         const kind = a.group === "door" ? "door" : a.group === "window" ? "window" : "hole";
         apertures.push({
           kind,
-          xCm: a.xCm,
-          widthCm: a.widthCm,
+          xCm: a.xCm * scale,
+          widthCm: a.widthCm * scale,
           yCm: a.yCm,
           heightCm: a.heightCm,
           id: a.id,

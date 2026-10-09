@@ -19,7 +19,7 @@
  *
  * Salida (parseElevationElements):
  *   {
- *     wallId, wallWidthCm, widthCm, heightCm,
+ *     wallId, wallWidthCm, widthCm, heightCm, viewBox,
  *     apertures: [
  *       { id, name, group, room, parentWallId, xCm, widthCm, yCm, heightCm,
  *         colorExterior, colorInterior, colorExtrusion,
@@ -81,6 +81,7 @@ export interface ElevationElements {
   wallWidthCm: number | null;
   widthCm: number;
   heightCm: number;
+  viewBox: { x: number; y: number; width: number; height: number } | null;
   apertures: ElevationApertureElement[];
 }
 
@@ -154,11 +155,13 @@ export function parseElevationElements(svg: string): ElevationElements {
 
   let widthCm: number;
   let heightCm: number;
+  let viewBox: { x: number; y: number; width: number; height: number } | null = null;
   if (viewBoxStr) {
     const parts = viewBoxStr.trim().split(/[\s,]+/).map(parseNumber);
     if (parts.length !== 4) throw new Error("viewBox invalido");
     widthCm = parts[2];
     heightCm = parts[3];
+    viewBox = { x: parts[0], y: parts[1], width: parts[2], height: parts[3] };
   } else if (widthStr && heightStr) {
     widthCm = parseNumber(widthStr);
     heightCm = parseNumber(heightStr);
@@ -252,7 +255,7 @@ export function parseElevationElements(svg: string): ElevationElements {
     });
   }
 
-  return { wallId, wallWidthCm, widthCm, heightCm, apertures };
+  return { wallId, wallWidthCm, widthCm, heightCm, viewBox, apertures };
 }
 
 // =============================================================================
