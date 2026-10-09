@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 900" width="1400" height="900">
+  <!--
+    Piso de 3 habitaciones (~80m² utiles, 104m² totales).
+    Coordenadas en centimetros. 13m x 8m.
+
+    Distribucion:
+      - Salon:        500x400 cm = 20m²
+      - Dorm. 1:      350x400 cm = 14m²
+      - Pasillo:      250x400 cm = 10m²
+      - Cocina:       300x400 cm = 12m²
+      - Bano:         200x400 cm = 8m²
+      - Dorm. 2:      300x400 cm = 12m²
+
+    El path principal (M..L..L..L..Z) es la silueta rectangular.
+    Las paredes interiores son sub-paths M..L (sin Z) que se
+    renderizan como lineas 2D en el visor. v0.2.0 solo extruye
+    el contorno, no las paredes interiores (limitacion v1).
+  -->
+  <path d="M 50 50 L 1350 50 L 1350 850 L 50 850 Z" fill="#f5e6c8" stroke="#333" stroke-width="3"/>
+  <line x1="50" y1="450" x2="900" y2="450" stroke="#5a3a1a" stroke-width="3" stroke-linecap="square"/>
+  <line x1="550" y1="50" x2="550" y2="450" stroke="#5a3a1a" stroke-width="3" stroke-linecap="square"/>
+  <line x1="850" y1="450" x2="850" y2="850" stroke="#5a3a1a" stroke-width="3" stroke-linecap="square"/>
+  <line x1="1050" y1="450" x2="1050" y2="850" stroke="#5a3a1a" stroke-width="3" stroke-linecap="square"/>
+  <line x1="300" y1="450" x2="300" y2="850" stroke="#5a3a1a" stroke-width="3" stroke-linecap="square"/>
+  <text x="300" y="270" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="600" fill="#333">Salón</text>
+  <text x="725" y="270" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="600" fill="#333">Dorm. 1</text>
+  <text x="175" y="650" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="600" fill="#333">Pasillo</text>
+  <text x="575" y="650" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="600" fill="#333">Cocina</text>
+  <text x="950" y="650" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="600" fill="#333">Baño</text>
+  <text x="1200" y="650" text-anchor="middle" font-family="sans-serif" font-size="22" font-weight="600" fill="#333">Dorm. 2</text>
+  <text x="300" y="300" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#888">20 m²</text>
+  <text x="725" y="300" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#888">14 m²</text>
+  <text x="175" y="680" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#888">10 m²</text>
+  <text x="575" y="680" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#888">12 m²</text>
+  <text x="950" y="680" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#888">8 m²</text>
+  <text x="1200" y="680" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#888">12 m²</text>
+  
+  <line x1="50" y1="20" x2="1350" y2="20" stroke="#888" stroke-width="1"/>
+  <text x="700" y="10" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#666">1300 cm</text>
+  <line x1="20" y1="50" x2="20" y2="850" stroke="#888" stroke-width="1"/>
+  <text x="10" y="450" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#666" transform="rotate(-90 10 450)">800 cm</text>
+  
+</svg>

@@ -29,13 +29,60 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
     #back:hover { background: #fff; color: #2a7ae2; }
+    /* Icono de ayuda + tooltip */
+    #help {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 22px; height: 22px;
+      background: #2a7ae2; color: white;
+      border-radius: 50%;
+      font-size: 13px; font-weight: 700;
+      cursor: help; user-select: none;
+      margin-left: 4px;
+      transition: background 0.15s;
+    }
+    #help:hover, #help:focus { background: #1d5dbf; outline: none; }
+    #help-tooltip {
+      position: absolute; top: 100%; left: 0;
+      margin-top: 8px;
+      background: #222; color: #fff;
+      padding: 10px 14px; border-radius: 6px;
+      font-size: 12px; line-height: 1.5;
+      width: 220px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+      opacity: 0; visibility: hidden;
+      transform: translateY(-4px);
+      transition: opacity 0.15s, transform 0.15s, visibility 0.15s;
+      z-index: 10;
+      pointer-events: none;
+    }
+    #help-tooltip::before {
+      content: ""; position: absolute; top: -6px; left: 16px;
+      border-left: 6px solid transparent; border-right: 6px solid transparent;
+      border-bottom: 6px solid #222;
+    }
+    #help-tooltip ul { margin: 4px 0 0; padding-left: 18px; }
+    #help-tooltip li { margin: 2px 0; }
+    #help:hover + #help-tooltip,
+    #help:focus + #help-tooltip,
+    #help-tooltip:hover {
+      opacity: 1; visibility: visible;
+      transform: translateY(0);
+    }
   </style>
 </head>
 <body>
   <div id="info">
     <h2>Vista 3D</h2>
-    <p>Arrastra para rotar, scroll para zoom, click derecho para mover.</p>
     <p id="dims">Cargando...</p>
+    <span id="help" tabindex="0" aria-label="Ayuda de navegación">ⓘ</span>
+    <div id="help-tooltip" role="tooltip">
+      <strong>Cómo mover la vista</strong>
+      <ul>
+        <li><b>Arrastrar</b> (botón izquierdo) — rotar</li>
+        <li><b>Scroll</b> — zoom</li>
+        <li><b>Click derecho + arrastrar</b> — mover</li>
+      </ul>
+    </div>
   </div>
   <a id="back" href="/" title="Volver a la página de inicio">← Volver</a>
   <div id="error" style="display:none">
