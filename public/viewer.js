@@ -2126,6 +2126,37 @@ document.getElementById("sidebar-toggle")?.addEventListener("click", () => {
 });
 document.getElementById("sidebar-close")?.addEventListener("click", closeSidebar);
 
+// --- 8) Tema claro/oscuro --------------------------------------------------
+// El usuario puede alternar entre el modo claro (sidebar claro, popup claro)
+// y el modo oscuro (todo oscuro). Se guarda en localStorage.
+const THEME_KEY = "vista3d-theme";
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  const iconDark = document.getElementById("theme-icon-dark");
+  const iconLight = document.getElementById("theme-icon-light");
+  if (iconDark && iconLight) {
+    iconDark.style.display = theme === "dark" ? "" : "none";
+    iconLight.style.display = theme === "light" ? "" : "none";
+  }
+  try { localStorage.setItem(THEME_KEY, theme); } catch {}
+}
+function getInitialTheme() {
+  try {
+    const saved = localStorage.getItem(THEME_KEY);
+    if (saved === "light" || saved === "dark") return saved;
+  } catch {}
+  // Si no hay preferencia guardada, mirar prefers-color-scheme del sistema
+  if (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) {
+    return "light";
+  }
+  return "dark";
+}
+applyTheme(getInitialTheme());
+document.getElementById("theme-toggle")?.addEventListener("click", () => {
+  const cur = document.documentElement.getAttribute("data-theme") || "dark";
+  applyTheme(cur === "dark" ? "light" : "dark");
+});
+
 // Debug: estado del suelo al final (despues de seed)
 if (params.get("seed") && suelo && suelo.material) {
   const mat = Array.isArray(suelo.material) ? suelo.material[0] : suelo.material;

@@ -1,10 +1,58 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>vista3D - Visor</title>
   <style>
+    /* ---- Variables de tema (oscuro por defecto) ---- */
+    :root, html[data-theme="dark"] {
+      --bg: #1a1d23;
+      --bg-sidebar: rgba(20, 14, 8, 0.97);
+      --bg-overlay: rgba(20, 14, 8, 0.85);
+      --bg-button: rgba(20, 14, 8, 0.7);
+      --bg-canvas-top: #1a1408;
+      --bg-canvas-bottom: #0a0805;
+      --bg-input: #1f1a12;
+      --bg-input-focus: #2a221a;
+      --fg: #e8d8b8;
+      --fg-dim: rgba(232, 216, 184, 0.85);
+      --fg-mute: rgba(232, 216, 184, 0.6);
+      --fg-strong: #f5ead2;
+      --border: rgba(232, 216, 184, 0.2);
+      --border-strong: rgba(232, 216, 184, 0.4);
+      --fg-on-accent: #1a1408;
+      /* Sidebar: en oscuro va oscuro para combinar con el resto */
+      --sidebar-bg: #1f1810;
+      --sidebar-fg: #e8d8b8;
+      --sidebar-border: rgba(232, 216, 184, 0.15);
+      --sidebar-section-bg: #261e14;
+      --sidebar-section-border: rgba(232, 216, 184, 0.12);
+    }
+    /* ---- Modo claro ---- */
+    html[data-theme="light"] {
+      --bg: #f3eee4;
+      --bg-sidebar: rgba(255, 252, 245, 0.97);
+      --bg-overlay: rgba(255, 252, 245, 0.9);
+      --bg-button: rgba(255, 255, 255, 0.85);
+      --bg-canvas-top: #f0eadb;
+      --bg-canvas-bottom: #ddd5c2;
+      --bg-input: #f8f4ea;
+      --bg-input-focus: #ffffff;
+      --fg: #3a2e1c;
+      --fg-dim: rgba(58, 46, 28, 0.85);
+      --fg-mute: rgba(58, 46, 28, 0.55);
+      --fg-strong: #1a1408;
+      --border: rgba(58, 46, 28, 0.2);
+      --border-strong: rgba(58, 46, 28, 0.35);
+      --fg-on-accent: #ffffff;
+      /* Sidebar: en modo claro se ve como antes (claro) */
+      --sidebar-bg: #f7f8fb;
+      --sidebar-fg: #1a1d23;
+      --sidebar-border: rgba(0, 0, 0, 0.08);
+      --sidebar-section-bg: #ffffff;
+      --sidebar-section-border: rgba(0, 0, 0, 0.08);
+    }
     html, body {
       /* iOS Safari: usar min-height con 100vh (fallback) y 100dvh (dynamic
          viewport height) para que el sidebar se ajuste cuando aparece/
@@ -14,11 +62,12 @@
       min-height: 100dvh;
       margin: 0; padding: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      color: #1a1d23; background: #1a1d23;
+      color: var(--fg); background: var(--bg);
       /* Permitir scroll a nivel de body para que el sidebar fixed
          tenga espacio suficiente en iOS. El sidebar usa position: fixed
          asi que no se ve afectado por esto. */
       overflow-x: hidden;
+      transition: background-color 200ms, color 200ms;
     }
     canvas { display: block; }
 
@@ -50,8 +99,9 @@
       height: 100vh;
       height: 100dvh; /* iOS Safari: viewport dinamico que se ajusta
                           cuando aparece/desaparece la barra de URL. */
-      background: #f7f8fb;
-      border-left: 1px solid rgba(0,0,0,0.08);
+      background: var(--sidebar-bg);
+      color: var(--sidebar-fg);
+      border-left: 1px solid var(--sidebar-border);
       box-shadow: -2px 0 12px rgba(0,0,0,0.1);
       display: flex; flex-direction: column;
       transform: translateX(100%);
@@ -140,18 +190,18 @@
       display: flex; flex-direction: column; gap: 14px;
     }
     .sb-section {
-      background: white;
-      border: 1px solid rgba(0,0,0,0.06);
+      background: var(--sidebar-section-bg);
+      border: 1px solid var(--sidebar-section-border);
       border-radius: 8px;
       overflow: hidden;
     }
     /* Secciones colapsables: el title es un boton que abre/cierra. */
     .sb-section-title {
       padding: 10px 12px;
-      font-size: 11px; font-weight: 700; color: #5a6171;
+      font-size: 11px; font-weight: 700; color: var(--fg-mute);
       text-transform: uppercase; letter-spacing: 0.05em;
-      background: #fafbfd;
-      border-bottom: 1px solid rgba(0,0,0,0.06);
+      background: var(--sidebar-section-bg);
+      border-bottom: 1px solid var(--sidebar-section-border);
       display: flex; align-items: center; gap: 6px;
       cursor: pointer;
       user-select: none;
@@ -326,9 +376,9 @@
       z-index: 1000;
       min-width: 240px;
       max-width: 320px;
-      background: rgba(20, 14, 8, 0.97);
-      color: #e8d8b8;
-      border: 1px solid rgba(255, 200, 120, 0.35);
+      background: var(--bg-sidebar);
+      color: var(--fg);
+      border: 1px solid var(--border-strong);
       border-radius: 10px;
       box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
       backdrop-filter: blur(8px);
@@ -342,20 +392,20 @@
       gap: 8px;
       padding: 10px 12px;
       background: rgba(255, 200, 120, 0.08);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      border-bottom: 1px solid var(--border);
     }
-    .pp-title { font-size: 14px; font-weight: 700; color: #fff; }
-    .pp-sub { font-size: 11px; color: rgba(232, 216, 184, 0.6); margin-top: 2px; }
+    .pp-title { font-size: 14px; font-weight: 700; color: var(--fg-strong); }
+    .pp-sub { font-size: 11px; color: var(--fg-mute); margin-top: 2px; }
     #pp-close {
       background: transparent;
       border: none;
-      color: rgba(232, 216, 184, 0.7);
+      color: var(--fg-mute);
       font-size: 22px;
       line-height: 1;
       cursor: pointer;
       padding: 0 4px;
     }
-    #pp-close:hover { color: #fff; }
+    #pp-close:hover { color: var(--fg-strong); }
     .pp-body { padding: 8px 12px 10px; display: flex; flex-direction: column; gap: 8px; }
     .pp-face {
       display: flex; align-items: center; gap: 8px;
@@ -363,7 +413,7 @@
     .pp-face label {
       flex: 0 0 50px;
       font-size: 11px;
-      color: rgba(232, 216, 184, 0.85);
+      color: var(--fg-dim);
     }
     .pp-face input[type="color"] {
       flex: 0 0 36px;
@@ -391,9 +441,9 @@
     #fps-overlay[hidden] { display: none; }
     .fps-hud {
       position: absolute; top: 70px; left: 16px;
-      background: rgba(20, 14, 8, 0.85);
-      color: #e8d8b8;
-      border: 1px solid rgba(232, 216, 184, 0.2);
+      background: var(--bg-overlay);
+      color: var(--fg);
+      border: 1px solid var(--border);
       border-radius: 6px;
       padding: 10px 14px;
       font-size: 12px;
@@ -401,8 +451,8 @@
       font-family: -apple-system, BlinkMacSystemFont, sans-serif;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
     }
-    .fps-hud .fps-title { font-weight: 600; margin-bottom: 6px; color: #f5ead2; }
-    .fps-hud .fps-row { color: rgba(232, 216, 184, 0.85); }
+    .fps-hud .fps-title { font-weight: 600; margin-bottom: 6px; color: var(--fg-strong); }
+    .fps-hud .fps-row { color: var(--fg-dim); }
     .fps-hud kbd {
       display: inline-block;
       background: rgba(255, 255, 255, 0.12);
@@ -439,10 +489,10 @@
     .fps-btn {
       position: absolute;
       width: 56px; height: 56px;
-      background: rgba(20, 14, 8, 0.7);
-      border: 1px solid rgba(232, 216, 184, 0.4);
+      background: var(--bg-button);
+      border: 1px solid var(--border-strong);
       border-radius: 50%;
-      color: #e8d8b8;
+      color: var(--fg);
       font-size: 24px;
       line-height: 1;
       cursor: pointer;
@@ -454,8 +504,8 @@
       touch-action: none;
     }
     .fps-btn:active, .fps-btn.active {
-      background: rgba(232, 216, 184, 0.4);
-      color: #1a1408;
+      background: var(--fg);
+      color: var(--bg);
     }
     .fps-btn-up    { top: 0;    left: 50%; transform: translateX(-50%); }
     .fps-btn-down  { bottom: 0; left: 50%; transform: translateX(-50%); }
@@ -491,8 +541,8 @@
     .pp-3d-wrap {
       width: 100%;
       height: 120px;
-      background: linear-gradient(180deg, #1a1408 0%, #0a0805 100%);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      background: linear-gradient(180deg, var(--bg-canvas-top) 0%, var(--bg-canvas-bottom) 100%);
+      border-bottom: 1px solid var(--border);
       position: relative;
       overflow: hidden;
     }
@@ -504,7 +554,7 @@
     .pp-3d-label {
       position: absolute;
       font-size: 10px;
-      color: rgba(232, 216, 184, 0.6);
+      color: var(--fg-mute);
       background: rgba(0, 0, 0, 0.5);
       padding: 2px 6px;
       border-radius: 3px;
@@ -583,6 +633,24 @@
         </svg>
         Volver
       </a>
+      <button class="header-btn" id="theme-toggle" type="button" title="Cambiar tema (claro/oscuro)" aria-label="Cambiar tema">
+        <!-- Icono luna (modo oscuro activo, click = ir a claro) -->
+        <svg id="theme-icon-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+        <!-- Icono sol (modo claro activo, click = ir a oscuro) -->
+        <svg id="theme-icon-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+          <circle cx="12" cy="12" r="5"/>
+          <line x1="12" y1="1" x2="12" y2="3"/>
+          <line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/>
+          <line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+      </button>
       <button class="header-btn reset" id="mp-reset" type="button" title="Restablecer todos los colores y texturas por defecto" aria-label="Restablecer">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M3 12a9 9 0 1 0 3-6.7"/>
